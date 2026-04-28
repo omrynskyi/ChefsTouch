@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -20,8 +20,18 @@ class Session(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     last_active: datetime = Field(default_factory=datetime.utcnow)
     conversation: list[ConversationTurn] = Field(default_factory=list)
-    active_recipe_id: uuid.UUID | None = None
-    current_step: int | None = None
+    active_recipe_id: Optional[uuid.UUID] = None
+    current_step: Optional[int] = None
+    canvas_state: dict[str, Any] = Field(default_factory=dict)
+    preferences: dict[str, Any] = Field(default_factory=dict)
+
+
+class SessionContext(BaseModel):
+    """Enriched session state passed into and out of every agent turn."""
+    session_id: str
+    conversation: list[ConversationTurn]
+    active_recipe: Optional[Recipe] = None
+    current_step: Optional[int] = None
     canvas_state: dict[str, Any] = Field(default_factory=dict)
     preferences: dict[str, Any] = Field(default_factory=dict)
 
@@ -31,12 +41,12 @@ class SessionCreate(BaseModel):
 
 
 class SessionUpdate(BaseModel):
-    last_active: datetime | None = None
-    conversation: list[ConversationTurn] | None = None
-    active_recipe_id: uuid.UUID | None = None
-    current_step: int | None = None
-    canvas_state: dict[str, Any] | None = None
-    preferences: dict[str, Any] | None = None
+    last_active: Optional[datetime] = None
+    conversation: Optional[list[ConversationTurn]] = None
+    active_recipe_id: Optional[uuid.UUID] = None
+    current_step: Optional[int] = None
+    canvas_state: Optional[dict[str, Any]] = None
+    preferences: Optional[dict[str, Any]] = None
 
 
 # ─── Recipe ───────────────────────────────────────────────────────────────────
@@ -44,7 +54,7 @@ class SessionUpdate(BaseModel):
 class RecipeStep(BaseModel):
     step_number: int
     instruction: str
-    tip: str | None = None
+    tip: Optional[str] = None
 
 
 class Recipe(BaseModel):
@@ -55,7 +65,7 @@ class Recipe(BaseModel):
     servings: int = Field(gt=0)
     tags: list[str] = Field(default_factory=list)
     steps: list[RecipeStep] = Field(default_factory=list)
-    embedding: list[float] | None = None
+    embedding: Optional[list[float]] = None
     source: str = "generated"
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -67,5 +77,5 @@ class RecipeInsert(BaseModel):
     servings: int = Field(gt=0)
     tags: list[str] = Field(default_factory=list)
     steps: list[RecipeStep] = Field(default_factory=list)
-    embedding: list[float] | None = None
+    embedding: Optional[list[float]] = None
     source: str = "generated"

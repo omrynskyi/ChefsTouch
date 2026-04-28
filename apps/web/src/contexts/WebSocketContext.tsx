@@ -10,10 +10,13 @@ import type { ClientMessage, ServerMessage } from "@pair-cooking/types";
 
 export type ConnectionStatus = "connected" | "reconnecting" | "failed";
 
+type MessageHandler = (msg: ServerMessage) => void;
+
 interface WebSocketContextValue {
   status: ConnectionStatus;
   sessionId: string | null;
   send: (msg: ClientMessage) => void;
+  subscribe: (handler: MessageHandler) => () => void;
 }
 
 const WebSocketContext = createContext<WebSocketContextValue | null>(null);
@@ -32,6 +35,7 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
   const retryCount = useRef(0);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMounted = useRef(true);
+  const handlers = useRef<Set<MessageHandler>>(new Set());
 
   const connect = useCallback(() => {
     if (!isMounted.current) return;
@@ -51,10 +55,15 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
     socket.onmessage = (event: MessageEvent) => {
       if (!isMounted.current) return;
       const msg = JSON.parse(event.data as string) as ServerMessage;
+
       if (msg.type === "session_ready") {
         localStorage.setItem(SESSION_KEY, msg.session_id);
         setSessionId(msg.session_id);
         setStatus("connected");
+      }
+
+      for (const handler of handlers.current) {
+        handler(msg);
       }
     };
 
@@ -91,8 +100,13 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const subscribe = useCallback((handler: MessageHandler) => {
+    handlers.current.add(handler);
+    return () => { handlers.current.delete(handler); };
+  }, []);
+
   return (
-    <WebSocketContext.Provider value={{ status, sessionId, send }}>
+    <WebSocketContext.Provider value={{ status, sessionId, send, subscribe }}>
       {children}
     </WebSocketContext.Provider>
   );
