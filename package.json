@@ -1,0 +1,15 @@
+{
+  "name": "pair-cooking",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/web",
+    "packages/types"
+  ],
+  "scripts": {
+    "dev": "concurrently --names \"web,api\" --prefix-colors \"cyan,green\" \"npm run dev --workspace=apps/web\" \"cd apps/api && uvicorn main:app --reload --port 8000\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
