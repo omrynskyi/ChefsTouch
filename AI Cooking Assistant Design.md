@@ -41,7 +41,9 @@ On first load the canvas is blank with a single centered mic icon, signaling thi
 
 ### 2.2 Agent-Controlled UI
 
-The agent does not return text responses. It emits structured canvas operations that the frontend applies to maintain canvas state. This means the agent can add components, update their content, move them, focus them, or remove them at any point during a conversation turn, not just in response to a user message.
+The agent does not return text responses. It emits canvas operations that the frontend applies to the canvas. Each operation carries either an HTML fragment (for `add` and `update`) or just an ID (for `remove`, `move`, `focus`). The frontend relays these operations into a sandboxed iframe via `postMessage`; the iframe runtime applies them as direct DOM mutations. The agent can emit operations at any point during a conversation turn, not just in response to a user message.
+
+The canvas is rendered inside a sandboxed iframe. All agent-generated HTML is sanitized server-side before being sent to the client. The iframe's injected runtime handles all JavaScript behavior — the agent never writes scripts.
 
 ### 2.3 Voice First
 
@@ -90,104 +92,49 @@ The user can reject mutations verbally ("remove that step, I like it") and the a
 
 ### 3.5 Canvas Component Library (v1)
 
-The agent picks from a fixed set of components. Each component has a defined JSON schema. The frontend has a renderer for each type. Visual design is TBD — schemas are defined here, not layouts.
+The agent expresses components as HTML fragments using a CSS class vocabulary and `data-component` attributes. There are no typed JSON schemas per component. Instead, a vector index of HTML snippets documents each component's structure and class usage. Before each agent turn, the top 5 most relevant snippets are retrieved and injected into the system prompt — the agent uses only those class names.
 
-#### Component Schemas
+Interactive behavior is declared via `data-component` and `data-*` attributes. The iframe's injected runtime reads these on DOM ready and initializes the corresponding behavior.
 
-**recipe-card**
-```json
-{
-  "type": "recipe-card",
-  "id": "string",
-  "data": {
-    "title": "string",
-    "description": "string",
-    "duration_minutes": "number",
-    "servings": "number",
-    "tags": ["string"]
-  }
-}
-```
+#### Component types (v1)
 
-**step-view**
-```json
-{
-  "type": "step-view",
-  "id": "string",
-  "data": {
-    "step_number": "number",
-    "total_steps": "number",
-    "instruction": "string",
-    "tip": "string | null"
-  }
-}
-```
+| Component | `data-component` | Key `data-*` attributes |
+|-----------|-----------------|------------------------|
+| Step view | — | — (static HTML) |
+| Recipe card | — | — (static HTML, tappable via `action-btn`) |
+| Timer | `timer` | `data-duration="6m30s"` `data-autostart="true"` `data-label="Chicken"` |
+| Camera | `camera` | `data-prompt="Is this cooked?"` |
+| Suggestion | — | — (dismiss via `action-btn`) |
+| Text card | — | — (static HTML) |
+| Progress | `progress` | `data-current="1"` `data-total="6"` |
+| Action button | `action-btn` | `data-action="next_step"` |
 
-**timer**
-```json
-{
-  "type": "timer",
-  "id": "string",
-  "data": {
-    "duration_seconds": "number",
-    "label": "string",
-    "auto_start": "boolean"
-  }
-}
-```
-
-**camera**
-```json
-{
-  "type": "camera",
-  "id": "string",
-  "data": {
-    "prompt": "string"
-  }
-}
-```
-
-**suggestion**
-```json
-{
-  "type": "suggestion",
-  "id": "string",
-  "data": {
-    "heading": "string",
-    "body": "string",
-    "action_label": "string | null"
-  }
-}
-```
-
-**text-card**
-```json
-{
-  "type": "text-card",
-  "id": "string",
-  "data": {
-    "body": "string"
-  }
-}
-```
+Full snippet documentation and class reference is defined in the Rendering Architecture Spec.
 
 ### 3.6 Canvas Operations
 
-The agent emits a stream of operations over WebSocket. The frontend maintains a canvas state map keyed by component ID and applies each operation as it arrives.
+The agent emits an ordered array of operations over WebSocket. The parent React app sanitizes any HTML fragments server-side, then relays each operation into the iframe via `postMessage`. The iframe runtime applies them as direct DOM mutations.
 
-| Operation | Description |
-|-----------|-------------|
-| `add` | Render a new component |
-| `update` | Update data on an existing component |
-| `remove` | Remove a component from the canvas |
-| `focus` | Bring a component to visual prominence |
-| `move` | Reposition a component (position tokens: `top`, `bottom`, `left`, `right`, `center`, `bottom-right`, etc.) |
+| Operation | Payload | Description |
+|-----------|---------|-------------|
+| `add` | `id`, `html` | Insert a new component. If the target zone is already occupied, the existing component is removed first (zones are exclusive). |
+| `update` | `id`, `html` | Replace an existing component's DOM node in-place, preserving all other zones. |
+| `remove` | `id` | Remove a component from the canvas. |
+| `focus` | `id` | Set `data-focused` on the target; clear it from all others. |
+| `move` | `id`, `zone` | Change the component's `zone` attribute. If the target zone is occupied, the existing component is removed first. |
+
+**Zone exclusivity rule:** `add` and `move` always evict any existing component in the destination zone before inserting. The agent should still emit an explicit `remove` for components it intends to dismiss — zone eviction is a safety fallback, not the primary removal mechanism.
 
 **Example operation stream:**
 ```json
-{ "op": "add", "id": "step-3", "type": "step-view", "data": { ... }, "position": "center" }
-{ "op": "add", "id": "timer-1", "type": "timer", "data": { "duration_seconds": 360, "label": "Chicken", "auto_start": true }, "position": "bottom-right" }
+{ "op": "add",    "id": "step-3",       "html": "<div zone=\"center\" size=\"large\" layer=\"base\" class=\"card elevated animate-in\">...</div>" }
+{ "op": "add",    "id": "timer-1",      "html": "<div zone=\"corner-br\" size=\"small\" layer=\"float\" class=\"card compact glass animate-in\" data-component=\"timer\" data-duration=\"6m\" data-autostart=\"true\" data-label=\"Chicken\">...</div>" }
 { "op": "remove", "id": "recipe-card-1" }
+```
+
+**WebSocket message format:**
+```json
+{ "type": "canvas_ops", "ops": [ ...operations ] }
 ```
 
 ---
@@ -218,8 +165,8 @@ The system uses a multi-agent architecture orchestrated by a Main Assistant. The
 
 #### Render Agent
 - Receives: conversation state, current canvas state, Main Assistant intent
-- Does: decides which components to add/update/remove/move
-- Returns: ordered list of canvas operations
+- Does: decides which components to add/update/remove/move; generates HTML fragments for each using retrieved design snippets
+- Returns: ordered array of canvas operations where `add` and `update` ops carry sanitized HTML fragments
 
 ### 4.3 Invocation Pattern
 
@@ -242,6 +189,8 @@ On every turn the API layer reads the current session from the database and inje
 | Layer | Technology |
 |-------|------------|
 | Frontend | React (framework TBD) |
+| Canvas renderer | Sandboxed iframe with injected CSS + JS runtime; ops relayed via `postMessage` |
+| HTML sanitizer | `bleach` (Python, server-side, runs before ops are sent to client) |
 | Backend | Python, FastAPI |
 | Agent harness | LangChain / LangGraph |
 | LLM | OpenAI Responses API (dev: Gemma 4 27B via LM Studio) |
@@ -249,7 +198,8 @@ On every turn the API layer reads the current session from the database and inje
 | STT | Browser-based Whisper (whisper.cpp WASM) or Web Speech API — TBD |
 | TTS | OpenAI TTS via Responses API |
 | Session store | Supabase Postgres (Upstash Redis if latency requires) |
-| Vector DB | Supabase pgvector |
+| Vector DB | Supabase pgvector — recipes + design snippets (separate indexes) |
+| Snippet embeddings | `all-MiniLM-L6-v2` via `sentence-transformers` (CPU, no API key) |
 | Recipe data | LLM generated on demand + user-addable (scraped dataset TBD) |
 | Auth | Anonymous sessions v1, accounts TBD |
 | Deployment | TBD |
@@ -350,13 +300,14 @@ created_at        timestamp
 | # | Question | Owner | Priority |
 |---|----------|-------|----------|
 | 1 | Assistant name and personality definition | Oleg | High |
-| 2 | Component visual design and layout system | Oleg | High |
+| 2 | ~~Component visual design and layout system~~ — resolved by Rendering Architecture Spec | — | — |
 | 3 | STT final choice: WASM Whisper vs Web Speech API | Oleg | Medium |
 | 4 | Recipe data source: generate on demand vs seed dataset | Oleg | Medium |
 | 5 | Production LLM: OpenAI GPT-4o vs other hosted model | Oleg | Medium |
-| 6 | Canvas position system: token-based vs coordinate-based | Oleg | Medium |
+| 6 | ~~Canvas position system: token-based vs coordinate-based~~ — resolved: 8-zone named CSS grid | — | — |
 | 7 | Session persistence: how long before a session expires | Oleg | Low |
 | 8 | Upstash Redis: add from day one or wait for latency issues | Oleg | Low |
+| 9 | Design snippet index: manual curation vs auto-generated from component library | Oleg | Low |
 
 ---
 

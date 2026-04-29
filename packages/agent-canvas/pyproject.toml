@@ -1,0 +1,35 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "agent-canvas"
+version = "0.1.0"
+description = "LangGraph-based agent canvas renderer — generates HTML canvas operations from agent intent"
+requires-python = ">=3.9"
+dependencies = [
+    "langgraph>=0.2",
+    "langchain-core>=0.3",
+    "pydantic>=2.0",
+    "bleach>=6.0",
+]
+
+[project.optional-dependencies]
+local = [
+    "sentence-transformers>=3.0",
+]
+supabase = [
+    "supabase>=2.0",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.25",
+    "supabase>=2.0",
+    "sentence-transformers>=3.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[tool.hatch.build.targets.wheel]
+packages = ["agent_canvas"]

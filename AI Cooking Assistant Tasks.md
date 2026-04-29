@@ -19,18 +19,18 @@ Each task includes acceptance criteria, eval requirements where applicable, and 
 
 ## Epic 0 — Project Foundation
 
-### T-001 — Monorepo and project scaffolding
+### T-001 — Monorepo and project scaffolding ✅
 **Priority:** P0  
 **Estimate:** 0.5 day
 
 Set up a monorepo with two workspaces: `apps/web` (React frontend) and `apps/api` (FastAPI backend). Add shared `packages/types` for shared TypeScript/Python type definitions including canvas operation schemas.
 
 **Acceptance Criteria:**
-- `apps/web` runs with `npm run dev` and renders a blank page
-- `apps/api` runs with `uvicorn` and returns `{"status": "ok"}` from `GET /health`
-- `packages/types` exports canvas operation types consumable by both workspaces
-- Root `Makefile` has `make dev` that starts both services concurrently
-- `.env.example` documents all required environment variables
+- [x] `apps/web` runs with `npm run dev` and renders a blank page
+- [x] `apps/api` runs with `uvicorn` and returns `{"status": "ok"}` from `GET /health`
+- [x] `packages/types` exports canvas operation types consumable by both workspaces
+- [x] Root `Makefile` has `make dev` that starts both services concurrently
+- [x] `.env.example` documents all required environment variables
 
 **CI/CD:**
 - GitHub Actions workflow triggers on all PRs to `main`
@@ -39,7 +39,7 @@ Set up a monorepo with two workspaces: `apps/web` (React frontend) and `apps/api
 
 ---
 
-### T-002 — Supabase schema and migrations
+### T-002 — Supabase schema and migrations ✅
 **Priority:** P0  
 **Estimate:** 0.5 day  
 **Depends on:** T-001
@@ -47,11 +47,11 @@ Set up a monorepo with two workspaces: `apps/web` (React frontend) and `apps/api
 Create Supabase project. Write SQL migrations for `sessions` and `recipes` tables as defined in PRD section 6. Enable `pgvector` extension for recipe embeddings.
 
 **Acceptance Criteria:**
-- Migration runs cleanly against a fresh Supabase project via `supabase db push`
-- `sessions` table has all fields from PRD 6.1 with correct types and constraints
-- `recipes` table has all fields from PRD 6.2 including `embedding vector(1536)`
-- Supabase client initialized in backend with typed models via SQLAlchemy or equivalent
-- A seed script populates 5 sample recipes with embeddings for local dev
+- [x] Migration runs cleanly against a fresh Supabase project via `supabase db push`
+- [x] `sessions` table has all fields from PRD 6.1 with correct types and constraints
+- [x] `recipes` table has all fields from PRD 6.2 including `embedding vector(1536)`
+- [x] Supabase client initialized in backend with typed models via SQLAlchemy or equivalent
+- [x] A seed script populates 5 sample recipes with embeddings for local dev
 
 **CI/CD:**
 - Migration lint runs on PR: check for destructive operations on `main` branch
@@ -59,7 +59,7 @@ Create Supabase project. Write SQL migrations for `sessions` and `recipes` table
 
 ---
 
-### T-003 — WebSocket connection foundation
+### T-003 — WebSocket connection foundation ✅
 **Priority:** P0  
 **Estimate:** 1 day  
 **Depends on:** T-001
@@ -67,12 +67,12 @@ Create Supabase project. Write SQL migrations for `sessions` and `recipes` table
 Establish a persistent WebSocket connection between the React frontend and FastAPI backend. The connection should survive reconnects and carry a session ID from the first message.
 
 **Acceptance Criteria:**
-- Frontend connects on page load and reconnects automatically on disconnect (exponential backoff, max 5 retries)
-- First message from client sends `{ "type": "init", "session_id": "<uuid or null>" }`
-- Backend creates a new session in DB if `session_id` is null, otherwise loads existing
-- Backend confirms with `{ "type": "session_ready", "session_id": "<uuid>" }`
-- Session ID is persisted in `localStorage` on the client
-- Connection status is exposed as a React context (connected / reconnecting / failed)
+- [x] Frontend connects on page load and reconnects automatically on disconnect (exponential backoff, max 5 retries)
+- [x] First message from client sends `{ "type": "init", "session_id": "<uuid or null>" }`
+- [x] Backend creates a new session in DB if `session_id` is null, otherwise loads existing
+- [x] Backend confirms with `{ "type": "session_ready", "session_id": "<uuid>" }`
+- [x] Session ID is persisted in `localStorage` on the client
+- [x] Connection status is exposed as a React context (connected / reconnecting / failed)
 
 **CI/CD:**
 - Integration test: WebSocket connect, send init, assert session_ready within 2s
@@ -82,7 +82,7 @@ Establish a persistent WebSocket connection between the React frontend and FastA
 
 ## Epic 1 — Canvas Engine
 
-### T-010 — Canvas state manager
+### T-010 — Canvas state manager ✅
 **Priority:** P0  
 **Estimate:** 1 day  
 **Depends on:** T-003
@@ -90,14 +90,14 @@ Establish a persistent WebSocket connection between the React frontend and FastA
 Build the client-side canvas state manager. This is a React context that maintains a map of `component_id -> component` and exposes a `dispatch(operation)` function. The WebSocket listener feeds operations into this dispatcher.
 
 **Acceptance Criteria:**
-- Canvas state is a `Map<string, CanvasComponent>` maintained in a React context
-- `dispatch` handles all five operation types: `add`, `update`, `remove`, `focus`, `move`
-- `add` with a duplicate ID is a no-op and logs a warning
-- `remove` on a non-existent ID is a no-op
-- `update` deep-merges the incoming `data` with existing component data
-- `focus` sets a `focused: true` flag on the target component and clears it on all others
-- All operations are validated against the `CanvasOperation` type before dispatch
-- Invalid operations are logged and discarded without crashing
+- [x] Canvas state is a `Map<string, CanvasComponent>` maintained in a React context
+- [x] `dispatch` handles all five operation types: `add`, `update`, `remove`, `focus`, `move`
+- [x] `add` with a duplicate ID is a no-op and logs a warning
+- [x] `remove` on a non-existent ID is a no-op
+- [x] `update` deep-merges the incoming `data` with existing component data
+- [x] `focus` sets a `focused: true` flag on the target component and clears it on all others
+- [x] All operations are validated against the `CanvasOperation` type before dispatch
+- [x] Invalid operations are logged and discarded without crashing
 
 **CI/CD:**
 - Unit tests cover all five operation types including edge cases (duplicate add, remove missing, etc.)
@@ -113,13 +113,13 @@ Build the client-side canvas state manager. This is a React context that maintai
 Build the canvas renderer: a React component that reads canvas state and renders each component by type. The idle state (empty canvas with mic icon) is handled here.
 
 **Acceptance Criteria:**
-- Canvas renders all components currently in state
-- Each component type renders its designated React component (stubs acceptable at this stage)
-- Idle state (empty canvas state map) renders a centered mic icon
-- Component mount/unmount is animated (fade in/out, 150ms)
-- `focused` components receive a visual prominence treatment (exact styling TBD)
-- Position tokens (`center`, `bottom-right`, etc.) map to CSS layout rules
-- Canvas is responsive and works at viewport widths 375px and above
+- [ ] Canvas renders all components currently in state
+- [ ] Each component type renders its designated React component (stubs acceptable at this stage)
+- [ ] Idle state (empty canvas state map) renders a centered mic icon
+- [ ] Component mount/unmount is animated (fade in/out, 150ms)
+- [ ] `focused` components receive a visual prominence treatment (exact styling TBD)
+- [ ] Position tokens (`center`, `bottom-right`, etc.) map to CSS layout rules
+- [ ] Canvas is responsive and works at viewport widths 375px and above
 
 **CI/CD:**
 - Snapshot tests for each component type rendered from a fixture
@@ -135,10 +135,10 @@ Build the canvas renderer: a React component that reads canvas state and renders
 Implement the `recipe-card` React component. Renders title, description, duration, servings, and tags from schema.
 
 **Acceptance Criteria:**
-- Renders all fields from the `recipe-card` schema
-- Missing optional fields render gracefully (no crashes, no empty boxes)
-- Component is keyboard accessible
-- Clicking/tapping a recipe card emits a `sendPrompt("I want to make {title}")` event (placeholder for voice — user might tap on mobile)
+- [ ] Renders all fields from the `recipe-card` schema
+- [ ] Missing optional fields render gracefully (no crashes, no empty boxes)
+- [ ] Component is keyboard accessible
+- [ ] Clicking/tapping a recipe card emits a `sendPrompt("I want to make {title}")` event (placeholder for voice — user might tap on mobile)
 
 **CI/CD:**
 - Unit test: renders with full data, renders with minimal data
@@ -152,10 +152,10 @@ Implement the `recipe-card` React component. Renders title, description, duratio
 **Depends on:** T-011
 
 **Acceptance Criteria:**
-- Renders step number, total steps, instruction, and optional tip
-- Step progress indicator (e.g. "Step 2 of 7") is visually prominent
-- Tip renders in a visually distinct secondary style when present
-- Transitioning to a new step (update operation) animates the instruction text change
+- [ ] Renders step number, total steps, instruction, and optional tip
+- [ ] Step progress indicator (e.g. "Step 2 of 7") is visually prominent
+- [ ] Tip renders in a visually distinct secondary style when present
+- [ ] Transitioning to a new step (update operation) animates the instruction text change
 
 **CI/CD:**
 - Unit test: renders with and without tip
@@ -169,12 +169,12 @@ Implement the `recipe-card` React component. Renders title, description, duratio
 **Depends on:** T-011
 
 **Acceptance Criteria:**
-- Counts down from `duration_seconds` to zero
-- Starts automatically if `auto_start` is true
-- At zero, pulses visually and plays a soft audio cue
-- Can be paused and resumed by tapping
-- An `update` operation with a new `duration_seconds` resets the timer
-- Timer state survives a WebSocket reconnect (timer continues counting in frontend state)
+- [ ] Counts down from `duration_seconds` to zero
+- [ ] Starts automatically if `auto_start` is true
+- [ ] At zero, pulses visually and plays a soft audio cue
+- [ ] Can be paused and resumed by tapping
+- [ ] An `update` operation with a new `duration_seconds` resets the timer
+- [ ] Timer state survives a WebSocket reconnect (timer continues counting in frontend state)
 
 **CI/CD:**
 - Unit test: countdown logic, auto-start behavior, zero-state behavior
@@ -188,11 +188,11 @@ Implement the `recipe-card` React component. Renders title, description, duratio
 **Depends on:** T-011
 
 **Acceptance Criteria:**
-- Requests camera permission on first render; handles denied permission gracefully with a verbal TTS fallback message sent to backend
-- Captures 3 frames at 500ms intervals automatically once rendered
-- Frames are encoded as base64 JPEG at 720p max and sent to backend via WebSocket message `{ "type": "camera_frames", "frames": [...] }`
-- After frames are sent, emits a local `remove` operation for itself (camera closes automatically)
-- If capture fails for any reason, sends `{ "type": "camera_error" }` to backend
+- [ ] Requests camera permission on first render; handles denied permission gracefully with a verbal TTS fallback message sent to backend
+- [ ] Captures 3 frames at 500ms intervals automatically once rendered
+- [ ] Frames are encoded as base64 JPEG at 720p max and sent to backend via WebSocket message `{ "type": "camera_frames", "frames": [...] }`
+- [ ] After frames are sent, emits a local `remove` operation for itself (camera closes automatically)
+- [ ] If capture fails for any reason, sends `{ "type": "camera_error" }` to backend
 
 **CI/CD:**
 - Unit test: frame capture logic mocked with a fake MediaStream
@@ -207,9 +207,9 @@ Implement the `recipe-card` React component. Renders title, description, duratio
 **Depends on:** T-011
 
 **Acceptance Criteria:**
-- Renders heading, body, and optional action label
-- Action label renders as a tappable button that sends the label text as a voice prompt
-- Dismissable by swiping or tapping an X (sends `{ "type": "suggestion_dismissed" }` to backend)
+- [ ] Renders heading, body, and optional action label
+- [ ] Action label renders as a tappable button that sends the label text as a voice prompt
+- [ ] Dismissable by swiping or tapping an X (sends `{ "type": "suggestion_dismissed" }` to backend)
 
 **CI/CD:**
 - Unit test: renders with and without action label
@@ -223,9 +223,9 @@ Implement the `recipe-card` React component. Renders title, description, duratio
 **Depends on:** T-011
 
 **Acceptance Criteria:**
-- Renders body text in a clean readable style
-- Body text supports basic markdown (bold, italic) via a lightweight renderer
-- Max 3 lines before truncating with a "tap to expand" affordance
+- [ ] Renders body text in a clean readable style
+- [ ] Body text supports basic markdown (bold, italic) via a lightweight renderer
+- [ ] Max 3 lines before truncating with a "tap to expand" affordance
 
 **CI/CD:**
 - Unit test: renders short text, long text, markdown formatting
@@ -242,12 +242,12 @@ Implement the `recipe-card` React component. Renders title, description, duratio
 Capture microphone audio in the browser using the MediaRecorder API. Stream audio chunks to the backend over WebSocket.
 
 **Acceptance Criteria:**
-- Microphone permission is requested once and its state is persisted
-- Recording starts automatically when connection is established and no agent turn is in progress
-- Audio is captured as WebM/Opus at 16kHz
-- Chunks are sent every 250ms as `{ "type": "audio_chunk", "data": "<base64>" }`
-- Recording pauses while the agent is speaking (TTS active) to prevent echo
-- Visual mic indicator reflects state: listening, paused, processing
+- [ ] Microphone permission is requested once and its state is persisted
+- [ ] Recording starts automatically when connection is established and no agent turn is in progress
+- [ ] Audio is captured as WebM/Opus at 16kHz
+- [ ] Chunks are sent every 250ms as `{ "type": "audio_chunk", "data": "<base64>" }`
+- [ ] Recording pauses while the agent is speaking (TTS active) to prevent echo
+- [ ] Visual mic indicator reflects state: listening, paused, processing
 
 **CI/CD:**
 - Unit test: audio state machine (listening, paused, processing) transitions
@@ -263,12 +263,12 @@ Capture microphone audio in the browser using the MediaRecorder API. Stream audi
 Receive audio chunks on the backend, run STT, and produce a transcript. Initial implementation uses OpenAI Whisper API. The STT provider is abstracted behind an interface for future swapping.
 
 **Acceptance Criteria:**
-- `STTProvider` abstract class with a single `transcribe(audio_bytes) -> str` method
-- `WhisperSTTProvider` implements it using OpenAI Whisper API
-- Voice activity detection: only submit to Whisper when a pause is detected (300ms silence)
-- Transcript is returned as `{ "type": "transcript", "text": "..." }` to the client for display
-- Empty transcripts (silence) are discarded without triggering an agent turn
-- Latency target: transcript available within 800ms of speech ending
+- [ ] `STTProvider` abstract class with a single `transcribe(audio_bytes) -> str` method
+- [ ] `WhisperSTTProvider` implements it using OpenAI Whisper API
+- [ ] Voice activity detection: only submit to Whisper when a pause is detected (300ms silence)
+- [ ] Transcript is returned as `{ "type": "transcript", "text": "..." }` to the client for display
+- [ ] Empty transcripts (silence) are discarded without triggering an agent turn
+- [ ] Latency target: transcript available within 800ms of speech ending
 
 **CI/CD:**
 - Unit test: VAD logic, empty transcript discard
@@ -284,12 +284,12 @@ Receive audio chunks on the backend, run STT, and produce a transcript. Initial 
 Convert the agent's verbal response to audio and stream it to the frontend.
 
 **Acceptance Criteria:**
-- `TTSProvider` abstract class with `synthesize(text) -> audio_bytes` method
-- `OpenAITTSProvider` implements it using OpenAI TTS via Responses API
-- Audio is sent as `{ "type": "tts_audio", "data": "<base64 mp3>" }`
-- Frontend plays audio immediately on receipt using Web Audio API
-- Frontend sets recording state to `paused` while TTS audio is playing
-- Recording resumes 300ms after audio playback ends
+- [ ] `TTSProvider` abstract class with `synthesize(text) -> audio_bytes` method
+- [ ] `OpenAITTSProvider` implements it using OpenAI TTS via Responses API
+- [ ] Audio is sent as `{ "type": "tts_audio", "data": "<base64 mp3>" }`
+- [ ] Frontend plays audio immediately on receipt using Web Audio API
+- [ ] Frontend sets recording state to `paused` while TTS audio is playing
+- [ ] Recording resumes 300ms after audio playback ends
 
 **CI/CD:**
 - Unit test: TTS provider interface contract
@@ -299,7 +299,7 @@ Convert the agent's verbal response to audio and stream it to the frontend.
 
 ## Epic 3 — Agent Harness
 
-### T-030 — Session context loader
+### T-030 — Session context loader ✅
 **Priority:** P0  
 **Estimate:** 0.5 day  
 **Depends on:** T-002, T-003
@@ -307,11 +307,11 @@ Convert the agent's verbal response to audio and stream it to the frontend.
 On every agent turn, load the full session context from Supabase and inject it into the agent request.
 
 **Acceptance Criteria:**
-- `SessionLoader` reads session by ID from Supabase
-- Returns typed `SessionContext` object with conversation history, active recipe, current step, canvas state, and preferences
-- Conversation history is trimmed to last 20 turns to manage context window
-- After each agent turn, session is written back to Supabase with updated state
-- Write is atomic: if the agent turn fails, session state is not updated
+- [x] `SessionLoader` reads session by ID from Supabase
+- [x] Returns typed `SessionContext` object with conversation history, active recipe, current step, canvas state, and preferences
+- [x] Conversation history is trimmed to last 20 turns to manage context window
+- [x] After each agent turn, session is written back to Supabase with updated state
+- [x] Write is atomic: if the agent turn fails, session state is not updated
 
 **CI/CD:**
 - Unit test: load, trim history, write back
@@ -327,13 +327,13 @@ On every agent turn, load the full session context from Supabase and inject it i
 Implement the Main Assistant as a LangGraph node. It receives session context and user input, calls sub-agents as tools via the OpenAI Responses API, and returns a `{ tts_text, canvas_ops }` response.
 
 **Acceptance Criteria:**
-- Main Assistant is a LangGraph `StateGraph` node
-- System prompt enforces short, quirky, friend-like responses (max 2 sentences for TTS)
-- Sub-agents (Recipe, Image Inference, Render) are registered as tools
-- Main Assistant decides which tools to call based on user intent
-- All tool calls use structured JSON input/output — no free text between agents
-- Agent turn completes within 4 seconds for text-only turns
-- Graceful degradation: if a sub-agent fails, Main Assistant responds with a fallback message rather than crashing
+- [ ] Main Assistant is a LangGraph `StateGraph` node
+- [ ] System prompt enforces short, quirky, friend-like responses (max 2 sentences for TTS)
+- [ ] Sub-agents (Recipe, Image Inference, Render) are registered as tools
+- [ ] Main Assistant decides which tools to call based on user intent
+- [ ] All tool calls use structured JSON input/output — no free text between agents
+- [ ] Agent turn completes within 4 seconds for text-only turns
+- [ ] Graceful degradation: if a sub-agent fails, Main Assistant responds with a fallback message rather than crashing
 
 **CI/CD:**
 - Unit test: mock tool calls, assert correct tools invoked for 5 canonical intents (recipe request, camera check, step navigation, mutation rejection, parallel task)
@@ -347,12 +347,12 @@ Implement the Main Assistant as a LangGraph node. It receives session context an
 **Depends on:** T-031, T-002
 
 **Acceptance Criteria:**
-- Accepts `{ intent: string, tags: string[], max_results: number }` as input
-- Queries Supabase pgvector using cosine similarity on intent embedding
-- Returns up to `max_results` recipes conforming to the `recipe-card` schema
-- Falls back to LLM generation if vector search returns fewer than 2 results with similarity > 0.75
-- Generated recipes are saved to the `recipes` table with `source: "generated"`
-- Returns structured JSON only — no prose
+- [ ] Accepts `{ intent: string, tags: string[], max_results: number }` as input
+- [ ] Queries Supabase pgvector using cosine similarity on intent embedding
+- [ ] Returns up to `max_results` recipes conforming to the `recipe-card` schema
+- [ ] Falls back to LLM generation if vector search returns fewer than 2 results with similarity > 0.75
+- [ ] Generated recipes are saved to the `recipes` table with `source: "generated"`
+- [ ] Returns structured JSON only — no prose
 
 **CI/CD:**
 - Unit test: vector search mock, fallback trigger condition, output schema validation
@@ -367,12 +367,12 @@ Implement the Main Assistant as a LangGraph node. It receives session context an
 **Depends on:** T-031
 
 **Acceptance Criteria:**
-- Accepts `{ frames: string[], context: string }` where `context` is the current recipe step
-- Passes frames to vision-capable model (GPT-4o vision) alongside a structured analysis prompt
-- Returns `{ observation: string, assessment: "ok" | "warning" | "error", suggested_action: string | null }`
-- `suggested_action` is a short imperative string suitable for a new step-view ("Cook for 2 more minutes")
-- If frames are unusable (blurry, dark), returns `assessment: "error"` with a descriptive observation
-- Latency target: response within 2.5 seconds
+- [ ] Accepts `{ frames: string[], context: string }` where `context` is the current recipe step
+- [ ] Passes frames to vision-capable model (GPT-4o vision) alongside a structured analysis prompt
+- [ ] Returns `{ observation: string, assessment: "ok" | "warning" | "error", suggested_action: string | null }`
+- [ ] `suggested_action` is a short imperative string suitable for a new step-view ("Cook for 2 more minutes")
+- [ ] If frames are unusable (blurry, dark), returns `assessment: "error"` with a descriptive observation
+- [ ] Latency target: response within 2.5 seconds
 
 **CI/CD:**
 - Unit test: output schema validation, error handling for bad frames
@@ -387,12 +387,12 @@ Implement the Main Assistant as a LangGraph node. It receives session context an
 **Depends on:** T-031
 
 **Acceptance Criteria:**
-- Accepts `{ intent: string, current_canvas: CanvasState, data: any }` as input
-- Returns an ordered array of canvas operations conforming to the `CanvasOperation` schema
-- Each operation is validated against the schema before being returned
-- Invalid operations are dropped and logged — never returned to client
-- Agent never returns more than 5 operations per turn
-- Position tokens are chosen contextually: timers go `bottom-right`, suggestions go `bottom`, recipe cards go `center`
+- [ ] Accepts `{ intent: string, current_canvas: CanvasState, data: any }` as input
+- [ ] Returns an ordered array of canvas operations conforming to the `CanvasOperation` schema
+- [ ] Each operation is validated against the schema before being returned
+- [ ] Invalid operations are dropped and logged — never returned to client
+- [ ] Agent never returns more than 5 operations per turn
+- [ ] Position tokens are chosen contextually: timers go `bottom-right`, suggestions go `bottom`, recipe cards go `center`
 
 **CI/CD:**
 - Unit test: output schema validation, operation count limit, position token assignment for each component type
@@ -406,12 +406,12 @@ Implement the Main Assistant as a LangGraph node. It receives session context an
 **Depends on:** T-034
 
 **Acceptance Criteria:**
-- After each step confirmation, Main Assistant evaluates whether the current step has a wait window
-- Wait window is inferred from step instruction text (keywords: "simmer", "bake", "sear", "rest", "wait", time mentions)
-- If a wait window is detected, a parallel task suggestion is generated from remaining recipe steps
-- Suggestion is emitted as a canvas operation without a user prompt triggering it
-- Suggestion fires at most once per step
-- If the user is already engaged in conversation, suggestion is suppressed
+- [ ] After each step confirmation, Main Assistant evaluates whether the current step has a wait window
+- [ ] Wait window is inferred from step instruction text (keywords: "simmer", "bake", "sear", "rest", "wait", time mentions)
+- [ ] If a wait window is detected, a parallel task suggestion is generated from remaining recipe steps
+- [ ] Suggestion is emitted as a canvas operation without a user prompt triggering it
+- [ ] Suggestion fires at most once per step
+- [ ] If the user is already engaged in conversation, suggestion is suppressed
 
 **CI/CD:**
 - Unit test: wait window detection for 10 sample step instructions
@@ -527,10 +527,10 @@ Evals run as a dedicated test suite in CI on every merge to `main`. They use a f
 **Depends on:** T-001
 
 **Acceptance Criteria:**
-- Pipeline triggers on all PRs to `main` and on direct pushes to `main`
-- Jobs: `lint`, `type-check`, `unit-test`, `integration-test`, `eval` (E-001 and E-004 on PR, all evals on merge)
-- All jobs must pass before a PR can merge (branch protection rule)
-- Pipeline completes in under 8 minutes for PR runs
+- [ ] Pipeline triggers on all PRs to `main` and on direct pushes to `main`
+- [ ] Jobs: `lint`, `type-check`, `unit-test`, `integration-test`, `eval` (E-001 and E-004 on PR, all evals on merge)
+- [ ] All jobs must pass before a PR can merge (branch protection rule)
+- [ ] Pipeline completes in under 8 minutes for PR runs
 
 **Pipeline definition (`github/workflows/ci.yml`):**
 
@@ -552,12 +552,12 @@ e2e-nightly  → E-005 (runs nightly via cron, not on PR)
 **Depends on:** T-050
 
 **Acceptance Criteria:**
-- Merge to `main` triggers automatic deployment to staging environment
-- Frontend deployed to Vercel (or equivalent) preview URL
-- Backend deployed to Railway / Render / Fly.io (TBD)
-- Staging uses a separate Supabase project with its own seed data
-- Deployment completes within 5 minutes of merge
-- Smoke test runs post-deploy: WebSocket connect, send "hello", assert `session_ready` within 3s
+- [ ] Merge to `main` triggers automatic deployment to staging environment
+- [ ] Frontend deployed to Vercel (or equivalent) preview URL
+- [ ] Backend deployed to Railway / Render / Fly.io (TBD)
+- [ ] Staging uses a separate Supabase project with its own seed data
+- [ ] Deployment completes within 5 minutes of merge
+- [ ] Smoke test runs post-deploy: WebSocket connect, send "hello", assert `session_ready` within 3s
 
 **CI/CD:**
 - Deployment step runs after all eval jobs pass
@@ -572,10 +572,10 @@ e2e-nightly  → E-005 (runs nightly via cron, not on PR)
 **Depends on:** T-051
 
 **Acceptance Criteria:**
-- All agent turns are logged with: session ID, turn ID, input tokens, output tokens, latency, tools invoked, eval scores if available
-- Logs are structured JSON written to stdout and ingested by a log aggregator (TBD: Axiom or Supabase logs)
-- Three alerts configured: agent turn latency p95 > 5s, eval score below threshold on nightly run, WebSocket error rate > 5%
-- A simple `/metrics` endpoint on the backend returns current session count and turn count
+- [ ] All agent turns are logged with: session ID, turn ID, input tokens, output tokens, latency, tools invoked, eval scores if available
+- [ ] Logs are structured JSON written to stdout and ingested by a log aggregator (TBD: Axiom or Supabase logs)
+- [ ] Three alerts configured: agent turn latency p95 > 5s, eval score below threshold on nightly run, WebSocket error rate > 5%
+- [ ] A simple `/metrics` endpoint on the backend returns current session count and turn count
 
 ---
 
@@ -585,10 +585,10 @@ e2e-nightly  → E-005 (runs nightly via cron, not on PR)
 **Depends on:** T-050
 
 **Acceptance Criteria:**
-- Each eval run writes results to `evals/results/{eval-id}-{timestamp}.json`
-- Results are committed to the repo via a bot commit after each CI run
-- A `evals/summary.md` is auto-generated showing the last 10 runs per eval with pass/fail
-- Regressions (score drops by more than 5% from previous run) trigger a Slack alert
+- [ ] Each eval run writes results to `evals/results/{eval-id}-{timestamp}.json`
+- [ ] Results are committed to the repo via a bot commit after each CI run
+- [ ] A `evals/summary.md` is auto-generated showing the last 10 runs per eval with pass/fail
+- [ ] Regressions (score drops by more than 5% from previous run) trigger a Slack alert
 
 ---
 
