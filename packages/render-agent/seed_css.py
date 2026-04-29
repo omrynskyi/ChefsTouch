@@ -26,8 +26,8 @@ if env_path.exists():
 
 from supabase import create_client
 
-from agent_canvas import DEFAULT_CSS_ENTRIES, seed_design_snippets
-from agent_canvas.embeddings import LocalEmbeddings
+from render_agent import DEFAULT_CSS_ENTRIES, seed_design_snippets
+from render_agent.embeddings import LocalEmbeddings
 
 
 def get_env(key: str) -> str:

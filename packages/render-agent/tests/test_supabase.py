@@ -4,9 +4,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from agent_canvas.retrievers.supabase import SupabaseCSSRetriever
-from agent_canvas.seeder import seed_design_snippets
-from agent_canvas.schemas import CSSEntry
+from render_agent.retrievers.supabase import SupabaseCSSRetriever
+from render_agent.seeder import seed_design_snippets
+from render_agent.schemas import CSSEntry
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -117,7 +117,7 @@ async def test_seeder_clears_before_insert_when_requested():
 
 
 async def test_seeder_defaults_to_builtin_entries():
-    from agent_canvas.snippets.default import DEFAULT_CSS_ENTRIES
+    from render_agent.snippets.default import DEFAULT_CSS_ENTRIES
 
     client = make_supabase_client()
     client.table.return_value.upsert.return_value.execute.return_value = MagicMock()

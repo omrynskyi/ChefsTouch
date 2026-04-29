@@ -8,9 +8,9 @@ import pytest
 from langchain_core.documents import Document
 from langchain_core.messages import AIMessage
 
-from agent_canvas import build_canvas_render_graph
-from agent_canvas.sanitizer import sanitize_html
-from agent_canvas.schemas import CanvasOp
+from render_agent import build_canvas_render_graph
+from render_agent.sanitizer import sanitize_html
+from render_agent.schemas import CanvasOp
 
 
 # ---------------------------------------------------------------------------

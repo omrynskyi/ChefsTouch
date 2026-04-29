@@ -30,8 +30,8 @@ async def seed_design_snippets(
     Usage:
         from supabase import create_client
         from langchain_openai import OpenAIEmbeddings
-        from agent_canvas.seeder import seed_design_snippets
-        from agent_canvas import DEFAULT_CSS_ENTRIES
+        from render_agent.seeder import seed_design_snippets
+        from render_agent import DEFAULT_CSS_ENTRIES
 
         await seed_design_snippets(
             client=create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY),

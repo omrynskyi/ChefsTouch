@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from agent_canvas.schemas import CSSEntry
+from render_agent.schemas import CSSEntry
 
 # Each entry is one CSS class or data-component declaration.
 # page_content = "{name}: {description} | tags: ... | example: ..."

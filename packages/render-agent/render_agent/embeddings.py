@@ -10,7 +10,7 @@ class LocalEmbeddings:
     Default model: all-MiniLM-L6-v2 (384 dims, ~80MB download on first use)
 
     Usage:
-        from agent_canvas.embeddings import LocalEmbeddings
+        from render_agent.embeddings import LocalEmbeddings
         embeddings = LocalEmbeddings()
     """
 

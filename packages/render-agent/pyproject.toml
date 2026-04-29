@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "agent-canvas"
+name = "render-agent"
 version = "0.1.0"
 description = "LangGraph-based agent canvas renderer — generates HTML canvas operations from agent intent"
 requires-python = ">=3.9"
@@ -32,4 +32,4 @@ dev = [
 asyncio_mode = "auto"
 
 [tool.hatch.build.targets.wheel]
-packages = ["agent_canvas"]
+packages = ["render_agent"]

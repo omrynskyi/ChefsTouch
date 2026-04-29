@@ -1,5 +1,5 @@
 """
-Interactive demo for agent-canvas.
+Interactive demo for render-agent.
 
 Uses:
   - LM Studio (local LLM, http://localhost:1234/v1) for generation
@@ -28,8 +28,8 @@ if env_path.exists():
 from langchain_openai import ChatOpenAI
 from supabase import create_client
 
-from agent_canvas import build_canvas_render_graph, SupabaseCSSRetriever
-from agent_canvas.embeddings import LocalEmbeddings
+from render_agent import build_canvas_render_graph, SupabaseCSSRetriever
+from render_agent.embeddings import LocalEmbeddings
 from preview import render
 
 
@@ -83,7 +83,7 @@ async def run_repl(verbose: bool, debug: bool = False) -> None:
     context = "demo session"
 
 
-    print("\n\033[1magent-canvas demo\033[0m")
+    print("\n\033[1mrender-agent demo\033[0m")
     print("Type an intent and press Enter. Type 'reset' to clear canvas, 'quit' to exit.\n")
 
     while True:
