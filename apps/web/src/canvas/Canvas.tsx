@@ -102,7 +102,7 @@ export function Canvas() {
 
   // Recipe-option children
   const recipeChildren = new Map<string, CanvasComponent<"recipe-option">[]>();
-  for (const comp of state.values()) {
+  for (const comp of state.active.values()) {
     if (comp.type === "recipe-option" && comp.parent) {
       const list = recipeChildren.get(comp.parent) ?? [];
       list.push(comp as CanvasComponent<"recipe-option">);
@@ -112,7 +112,7 @@ export function Canvas() {
 
   // Primary zone map — companions excluded; camera takes priority over step-view in center
   const primaryByZone = new Map<PositionToken, CanvasComponent>();
-  const entries = [...state.values()].sort((a, b) =>
+  const entries = [...state.active.values()].sort((a, b) =>
     (a.type === "camera" ? 1 : 0) - (b.type === "camera" ? 1 : 0)
   );
   for (const comp of entries) {
@@ -122,13 +122,13 @@ export function Canvas() {
   }
 
   // Companion lookups
-  const alertComp   = [...state.values()].find(c => c.type === "alert"     && c.data !== null) as CanvasComponent<"alert">     | undefined;
-  const textCardComp= [...state.values()].find(c => c.type === "text-card" && c.data !== null) as CanvasComponent<"text-card"> | undefined;
-  const stepViewComp= [...state.values()].find(c => c.type === "step-view" && c.data !== null) as CanvasComponent<"step-view"> | undefined;
+  const alertComp   = [...state.active.values()].find(c => c.type === "alert"     && c.data !== null) as CanvasComponent<"alert">     | undefined;
+  const textCardComp= [...state.active.values()].find(c => c.type === "text-card" && c.data !== null) as CanvasComponent<"text-card"> | undefined;
+  const stepViewComp= [...state.active.values()].find(c => c.type === "step-view" && c.data !== null) as CanvasComponent<"step-view"> | undefined;
 
   const dismissAlert  = alertComp  ? () => dispatch({ op: "remove", id: alertComp.id })  : undefined;
 
-  const idle = state.size === 0;
+  const idle = state.active.size === 0;
 
   // ── Top zone ────────────────────────────────────────────────────────────────
   // primary: progress-bar   companion-below: alert (slides down from top bar)

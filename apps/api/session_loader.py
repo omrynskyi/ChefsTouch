@@ -39,12 +39,16 @@ class SessionLoader:
 
         active_recipe = _fetch_recipe(self._client, row.get("active_recipe_id"))
 
+        canvas_state = row.get("canvas_state") or {}
+        if "active" not in canvas_state:
+            canvas_state = {"active": canvas_state, "staged": {}}
+
         return SessionContext(
             session_id=session_id,
             conversation=conversation,
             active_recipe=active_recipe,
             current_step=row.get("current_step"),
-            canvas_state=row.get("canvas_state") or {},
+            canvas_state=canvas_state,
             preferences=row.get("preferences") or {},
         )
 

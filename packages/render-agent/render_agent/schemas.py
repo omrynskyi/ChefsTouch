@@ -28,28 +28,42 @@ REQUIRED_DATA_KEYS: Dict[str, List[str]] = {
     "text-card": ["body"],
 }
 
+_OPS_REQUIRING_ID = {
+    "add", "stage", "update", "remove", "focus", "move", "commit", "swap",
+}
+
 
 class CanvasOp(BaseModel):
-    op: Literal["add", "update", "remove", "focus", "move"]
-    id: str
+    op: Literal["add", "stage", "update", "remove", "focus", "move", "commit", "swap", "clear_staged"]
+    id: Optional[str] = None
     type: Optional[str] = None
     data: Optional[Dict[str, Any]] = None
     position: Optional[str] = None
     parent: Optional[str] = None
+    out_id: Optional[str] = None  # swap: id to remove from active
 
     @model_validator(mode="after")
     def validate_op_fields(self) -> "CanvasOp":
-        if self.op == "add":
+        if self.op in _OPS_REQUIRING_ID and not self.id:
+            raise ValueError(f"id is required for op={self.op}")
+
+        if self.op in ("add", "stage"):
             if not self.type:
-                raise ValueError("type is required for op=add")
+                raise ValueError(f"type is required for op={self.op}")
             if self.type not in VALID_TYPES:
                 raise ValueError(f"unknown type '{self.type}', must be one of {sorted(VALID_TYPES)}")
             if self.data is None:
-                raise ValueError("data is required for op=add")
+                raise ValueError(f"data is required for op={self.op}")
             required = REQUIRED_DATA_KEYS.get(self.type, [])
             missing = [k for k in required if k not in self.data]
             if missing:
-                raise ValueError(f"op=add type={self.type} missing required data keys: {missing}")
+                raise ValueError(f"op={self.op} type={self.type} missing required data keys: {missing}")
+            if self.type == "recipe-option" and (not isinstance(self.parent, str) or not self.parent.strip()):
+                raise ValueError(f"parent is required for op={self.op} type=recipe-option")
+
+        if self.op == "swap" and not self.out_id:
+            raise ValueError("out_id is required for op=swap")
+
         if self.op == "move":
             if not self.position:
                 raise ValueError("position is required for op=move")

@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useReducer } from "react";
 import type { CanvasOperation, CanvasState } from "@pair-cooking/types";
-import { canvasReducer, validateOperation } from "../canvas/reducer";
+import { canvasReducer, validateOperation, INITIAL_CANVAS_STATE } from "../canvas/reducer";
 import { useWebSocket } from "./WebSocketContext";
 
 export interface CanvasContextValue {
@@ -10,7 +10,7 @@ export interface CanvasContextValue {
 
 const CanvasContext = createContext<CanvasContextValue | null>(null);
 
-const INITIAL_STATE: CanvasState = new Map();
+const INITIAL_STATE: CanvasState = INITIAL_CANVAS_STATE;
 
 export function CanvasProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(canvasReducer, INITIAL_STATE);

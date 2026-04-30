@@ -11,28 +11,14 @@ from .schemas import CanvasOp, VALID_TYPES
 
 
 def _canvas_summary(canvas_state: Dict[str, Any]) -> str:
-    if not canvas_state:
-        return "CURRENT CANVAS: empty"
-    lines = ["CURRENT CANVAS:"]
-    for comp_id, comp in canvas_state.items():
-        comp_type = comp.get("type", "?")
-        data = comp.get("data") or {}
-        if comp_type == "step-view":
-            desc = (
-                f'step {data.get("step_number","?")}/{data.get("total_steps","?")} '
-                f'"{data.get("instruction","")}"'
-            )
-        elif comp_type == "progress-bar":
-            desc = f'{data.get("current","?")}/{data.get("total","?")}'
-        elif comp_type == "timer":
-            desc = (
-                f'{data.get("duration_seconds","?")}s {data.get("label","?")} '
-                f'[auto_start={data.get("auto_start","?")}]'
-            )
-        else:
-            desc = ", ".join(f"{k}={v}" for k, v in list(data.items())[:2])
-        lines.append(f"- {comp_id} ({comp_type}): {desc}")
-    return "\n".join(lines)
+    import json
+    if "active" in canvas_state or "staged" in canvas_state:
+        active = canvas_state.get("active", {})
+        staged = canvas_state.get("staged", {})
+    else:
+        active = canvas_state
+        staged = {}
+    return "CANVAS STATE:\n" + json.dumps({"active": active, "staged": staged}, indent=2)
 
 
 def _validate_op(raw: dict) -> Optional[dict]:
@@ -41,6 +27,74 @@ def _validate_op(raw: dict) -> Optional[dict]:
         return op.model_dump(exclude_none=True)
     except Exception:
         return None
+
+
+def _canvas_layers(canvas_state: Dict[str, Any]) -> tuple[Dict[str, Any], Dict[str, Any]]:
+    if "active" in canvas_state or "staged" in canvas_state:
+        return canvas_state.get("active", {}), canvas_state.get("staged", {})
+    return canvas_state, {}
+
+
+def _component_type(entry: Any) -> Optional[str]:
+    if isinstance(entry, dict):
+        comp_type = entry.get("type")
+        if isinstance(comp_type, str):
+            return comp_type
+    return None
+
+
+def _repair_recipe_option_ops(ops: List[dict], canvas_state: Dict[str, Any]) -> tuple[List[dict], List[str]]:
+    active, staged = _canvas_layers(canvas_state)
+
+    existing_types: Dict[str, Optional[str]] = {}
+    for layer in (active, staged):
+        if isinstance(layer, dict):
+            for comp_id, entry in layer.items():
+                existing_types[comp_id] = _component_type(entry)
+
+    batch_types = {
+        op["id"]: op["type"]
+        for op in ops
+        if op.get("op") in {"add", "stage"} and isinstance(op.get("id"), str) and isinstance(op.get("type"), str)
+    }
+
+    repaired: List[dict] = []
+    errors: List[str] = []
+    synthesized_parents: set[str] = set()
+
+    for op in ops:
+        if op.get("op") not in {"add", "stage"} or op.get("type") != "recipe-option":
+            repaired.append(op)
+            continue
+
+        parent_id = op.get("parent")
+        if not isinstance(parent_id, str):
+            repaired.append(op)
+            continue
+
+        existing_parent_type = existing_types.get(parent_id)
+        batch_parent_type = batch_types.get(parent_id)
+
+        if existing_parent_type and existing_parent_type != "recipe-grid":
+            errors.append(
+                f"Dropped recipe-option '{op['id']}' because parent '{parent_id}' exists as '{existing_parent_type}'."
+            )
+            continue
+
+        if batch_parent_type and batch_parent_type != "recipe-grid":
+            errors.append(
+                f"Dropped recipe-option '{op['id']}' because parent '{parent_id}' is emitted as '{batch_parent_type}' in the same batch."
+            )
+            continue
+
+        parent_exists = existing_parent_type == "recipe-grid" or batch_parent_type == "recipe-grid"
+        if not parent_exists and parent_id not in synthesized_parents:
+            repaired.append({"op": "add", "id": parent_id, "type": "recipe-grid", "data": {}})
+            synthesized_parents.add(parent_id)
+
+        repaired.append(op)
+
+    return repaired, errors
 
 
 async def astream_events(
@@ -96,7 +150,8 @@ class _RenderGraph:
         async for event in astream_events(intent, context, canvas_state, self._llm):
             if isinstance(event, ContentEvent):
                 ops.append(event.op)
-        return {"ops": ops, "errors": []}
+        repaired_ops, errors = _repair_recipe_option_ops(ops, canvas_state)
+        return {"ops": repaired_ops, "errors": errors}
 
 
 def build_canvas_render_graph(llm: BaseChatModel, retriever: Any = None) -> _RenderGraph:

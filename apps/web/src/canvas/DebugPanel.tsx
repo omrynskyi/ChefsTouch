@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useCanvas } from "../contexts/CanvasContext";
+import { useWebSocket } from "../contexts/WebSocketContext";
 import type { CanvasOperation } from "@pair-cooking/types";
 import { getZone, targetZonesForOps, COMPANION_TYPES } from "./zones";
 
@@ -123,21 +124,32 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 export function DebugPanel() {
   const { state, dispatch } = useCanvas();
+  const { send, status } = useWebSocket();
   const [open, setOpen] = useState(false);
   const [stepIdx, setStepIdx] = useState(1); // 0-based index into STEPS
+  const [agentInput, setAgentInput] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const hasStepView = state.has("dbg-step");
-  const hasProgress = state.has("dbg-progress");
+  const hasStepView = state.active.has("dbg-step");
+  const hasProgress = state.active.has("dbg-progress");
 
   const clearCanvas = () => {
-    for (const id of state.keys()) dispatch({ op: "remove", id });
+    for (const id of state.active.keys()) dispatch({ op: "remove", id });
+  };
+
+  const sendAction = () => {
+    const action = agentInput.trim();
+    if (!action) return;
+    send({ type: "action", action });
+    setAgentInput("");
+    inputRef.current?.focus();
   };
 
   const inject = (ops: CanvasOperation[]) => {
     // Companions (alert, text-card) never displace primaries — just add them.
     // Primary ops clear only the zones they will occupy.
     const zones = targetZonesForOps(ops);
-    for (const [id, comp] of state) {
+    for (const [id, comp] of state.active) {
       if (!COMPANION_TYPES.has(comp.type) && zones.has(getZone(comp))) {
         dispatch({ op: "remove", id });
       }
@@ -208,6 +220,34 @@ export function DebugPanel() {
                 {stepIdx === i ? `[${s.n}]` : `${s.n}`}
               </DbgButton>
             ))}
+          </div>
+
+          <Divider />
+          <SectionLabel>Agent</SectionLabel>
+          <div style={{ color: "#a89880", fontSize: "11px", marginBottom: "2px" }}>
+            {status === "connected" ? "Connected" : <span style={{ color: "#c85f3a" }}>{status}</span>}
+          </div>
+          <div style={{ display: "flex", gap: "4px" }}>
+            <input
+              ref={inputRef}
+              value={agentInput}
+              onChange={(e) => setAgentInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") sendAction(); }}
+              placeholder="Type an intent…"
+              disabled={status !== "connected"}
+              style={{
+                flex: 1,
+                background: "rgba(255,255,255,0.06)",
+                color: "#e8d8c0",
+                border: "1px solid rgba(255,255,255,0.15)",
+                borderRadius: "5px",
+                padding: "4px 8px",
+                fontSize: "12px",
+                fontFamily: "var(--font-mono)",
+                outline: "none",
+              }}
+            />
+            <DbgButton onClick={sendAction}>Send</DbgButton>
           </div>
 
           <Divider />

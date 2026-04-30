@@ -43,7 +43,11 @@ On first load the canvas is blank with a single centered mic icon, signaling thi
 
 The agent emits typed canvas operations streamed over WebSocket as **JSONL** (one JSON object per line). Each operation specifies a **component type** and a **data payload** — the agent never writes HTML, CSS, or JavaScript. The React canvas renderer maps each type to its designated React component and zone.
 
-Operations stream progressively: the client renders a skeleton placeholder the moment the component `type` and `id` are parsed from the partial stream, then replaces it with full content when the op object closes. This means the canvas begins updating before the LLM has finished generating.
+The system uses a **Double-Buffered UI Architecture**:
+- **Active Canvas:** Visible components.
+- **Staging Area:** Hidden in-memory cache where the agent pre-builds and holds components during idle time.
+
+Operations stream **progressively**: the backend continuously patches incomplete JSON chunks into valid partial objects. This allows the UI to "type out" text token-by-token as the LLM generates, rather than waiting for the full component to close.
 
 The agent is constrained to a fixed catalog of named component types. It cannot introduce arbitrary markup.
 
@@ -119,20 +123,26 @@ The agent emits operations as **JSONL** (one JSON object per line) streamed over
 
 | Operation | Payload | Description |
 |-----------|---------|-------------|
-| `add` | `id`, `type`, `data` | Insert a new component using the typed catalog |
-| `add` (child) | `id`, `type`, `data`, `parent` | Insert a child component (e.g. `recipe-option` into `recipe-grid`) |
-| `update` | `id`, `data` | Shallow-merge new data into an existing component |
-| `remove` | `id` | Remove a component from the canvas |
-| `focus` | `id` | Visually emphasize target; clear focus from all others |
-| `move` | `id`, `zone` | Relocate a component to a different zone |
-| `skeleton` _(internal)_ | `id`, `type` | Sent by backend before full op — client renders placeholder immediately |
+| `add` | `id`, `type`, `data` | Insert a new component into the Active Canvas |
+| `stage` | `id`, `type`, `data` | Build a component invisibly in the Staging Area |
+| `commit` | `id` | Move a component from Staging to Active |
+| `swap` | `out_id`, `in_id` | Atomic transition: remove `out_id` and commit `in_id` |
+| `update` | `id`, `data` | Complete replacement of the component's data object |
+| `remove` | `id` | Remove a component from canvas or staging memory |
+| `clear_staged`| — | Wipe all components from the Staging Area |
+| `focus` | `id` | Visually emphasize target; clear focus from others |
+| `move` | `id`, `zone` | Relocate a component to a different grid zone |
+
+**Predictive Staging:**
+When the system is idle, the Orchestrator predicts the most likely next user intent and prompts the Render Agent to build the corresponding UI into the **Staging Area** using `stage`. When the user performs that action, the system issues a `commit` or `swap`, delivering the UI in ~16ms.
 
 **Streaming lifecycle per op:**
-1. LLM starts streaming a new JSONL line
-2. Backend healer detects `"type"` + `"id"` in partial buffer → sends `skeleton` op to client
-3. Client renders shimmer placeholder in the correct zone
-4. LLM completes the line → healer parses full op → sends `add`/`update` to client
-5. Client replaces skeleton with full React component
+1. LLM starts streaming a new JSONL line.
+2. Backend healer continuously repairs the incomplete JSON string using stack-based patching.
+3. Healer emits `partial_update` events to the client.
+4. Client merges partial data into state; React re-renders immediately, causing text to "type out" token-by-token.
+5. LLM completes the line → healer parses full op → final data is committed to the component.
+
 
 **Topological ordering rule:** parents before children; most important content first; supplementary components last.
 
@@ -181,9 +191,9 @@ The system uses a multi-agent architecture orchestrated by a Main Assistant. The
 - Returns: structured analysis (what it sees, assessment, suggested action)
 
 #### Render Agent
-- Receives: `{ intent: string, context: string, canvas_state: dict }` — canvas state summarizes existing component IDs and types
-- Does: decides which components to add/update/remove; emits **JSONL** ops using the typed component catalog; uses `update` for existing IDs, `add` for new ones; orders ops topologically
-- Returns: JSONL stream of canvas operations — one typed op per line, no HTML
+- Receives: `{ intent: string, context: string, canvas_state: json }` — canvas state includes exact JSON of both **active** and **staged** components.
+- Does: decides which components to add/stage/commit/swap/update/remove; emits **JSONL** ops; uses `update` for existing IDs (total replacement); orders ops topologically.
+- Returns: JSONL stream of canvas operations — one typed op per line, with progressive partial updates.
 
 ### 4.3 Invocation Pattern
 

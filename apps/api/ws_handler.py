@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
-import sys
 from typing import Optional
 
 from fastapi import WebSocket
@@ -14,9 +12,6 @@ from db import get_client
 from models import SessionContext
 from session_loader import SessionLoader, SessionNotFoundError
 
-# Make render-agent importable from the monorepo without installing it
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../packages/render-agent"))
-
 logger = logging.getLogger(__name__)
 
 _llm = None
@@ -26,7 +21,11 @@ def _get_llm():
     global _llm
     if _llm is None:
         from langchain_openai import ChatOpenAI
-        _llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.3)
+        import os
+        base_url = os.getenv("LLM_BASE_URL", "http://127.0.0.1:1234/v1")
+        model = os.getenv("LLM_MODEL", "google/gemma-4-26b-a4b")
+        api_key = os.getenv("OPENAI_API_KEY", "lm-studio")
+        _llm = ChatOpenAI(model=model, temperature=0.3, base_url=base_url, api_key=api_key)
     return _llm
 
 
@@ -65,7 +64,7 @@ async def handle_websocket(websocket: WebSocket) -> None:
 
 
 async def _handle_action(websocket: WebSocket, session_id: str, action: str) -> None:
-    from render_agent import ContentEvent, SkeletonEvent, astream_events
+    from main_agent import run_main_agent
 
     loader = SessionLoader(get_client())
     try:
@@ -75,19 +74,27 @@ async def _handle_action(websocket: WebSocket, session_id: str, action: str) -> 
         return
 
     context = _build_context(ctx)
+    intent = _humanize_action(action, ctx)
 
-    async for event in astream_events(action, context, ctx.canvas_state, _get_llm()):
-        if isinstance(event, SkeletonEvent):
-            await websocket.send_text(json.dumps({
-                "type": "canvas_ops",
-                "operations": [{"op": "skeleton", "id": event.id, "type": event.component_type}],
-            }))
-        elif isinstance(event, ContentEvent):
-            await websocket.send_text(json.dumps({
-                "type": "canvas_ops",
-                "operations": [event.op],
-            }))
-            apply_op(ctx.canvas_state, event.op)
+    async def _send_status(text: str) -> None:
+        await websocket.send_text(json.dumps({"type": "agent_status", "text": text}))
+
+    result = await run_main_agent(intent, context, ctx.canvas_state, _get_llm(), on_status=_send_status)
+
+    await _send_status("")  # clear the status bar
+
+    if result.get("tts_text"):
+        await websocket.send_text(json.dumps({
+            "type": "tts_text",
+            "text": result["tts_text"],
+        }))
+
+    for op in result.get("canvas_ops", []):
+        await websocket.send_text(json.dumps({
+            "type": "canvas_ops",
+            "operations": [op],
+        }))
+        apply_op(ctx.canvas_state, op)
 
     loader.save(ctx)
 
@@ -100,6 +107,23 @@ def _build_context(ctx: SessionContext) -> str:
             total = len(ctx.active_recipe.steps)
             parts.append(f"Step {ctx.current_step + 1} of {total}")
     return ". ".join(parts) if parts else ""
+
+
+def _humanize_action(action: str, ctx: SessionContext) -> str:
+    """Convert machine action IDs into natural-language intents for the LLM."""
+    if action == "next_step":
+        if ctx.active_recipe and ctx.current_step is not None:
+            next_n = ctx.current_step + 2  # 1-based
+            total = len(ctx.active_recipe.steps)
+            return f"Go to step {next_n} of {total} in {ctx.active_recipe.title}"
+        return "Advance to the next cooking step"
+
+    if action.startswith("select_"):
+        name = action[len("select_"):].replace("_", " ").title()
+        return f'User selected recipe: "{name}"'
+
+    # Fall back to the raw string — may be a free-text intent from the debug panel
+    return action
 
 
 async def _resolve_session(session_id: Optional[str]) -> str:

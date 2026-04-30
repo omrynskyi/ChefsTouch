@@ -46,6 +46,9 @@ class SuggestionData(BaseModel):
 
 class TextCardData(BaseModel):
     body: str
+    input_placeholder: str | None = None
+    submit_label: str | None = None
+    input_action_prefix: str | None = None
 
 
 ComponentData = Union[

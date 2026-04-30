@@ -67,6 +67,9 @@ export interface SuggestionData {
 
 export interface TextCardData {
   body: string;
+  input_placeholder?: string;
+  submit_label?: string;
+  input_action_prefix?: string;
 }
 
 // ─── Component types ─────────────────────────────────────────────────────────
@@ -109,7 +112,12 @@ export interface CanvasComponent<T extends ComponentType = ComponentType> {
   parent?: string;
 }
 
-export type CanvasState = Map<string, CanvasComponent>;
+export type CanvasMap = Map<string, CanvasComponent>;
+
+export interface CanvasState {
+  active: CanvasMap;
+  staged: CanvasMap;
+}
 
 // ─── Canvas operations ───────────────────────────────────────────────────────
 
@@ -152,13 +160,41 @@ export interface SkeletonOperation {
   type: ComponentType;
 }
 
+export interface StageOperation<T extends ComponentType = ComponentType> {
+  op: "stage";
+  id: string;
+  type: T;
+  data: ComponentDataMap[T];
+  position?: PositionToken;
+  parent?: string;
+}
+
+export interface CommitOperation {
+  op: "commit";
+  id: string;
+}
+
+export interface SwapOperation {
+  op: "swap";
+  id: string;
+  out_id: string;
+}
+
+export interface ClearStagedOperation {
+  op: "clear_staged";
+}
+
 export type CanvasOperation =
   | AddOperation
   | UpdateOperation
   | RemoveOperation
   | FocusOperation
   | MoveOperation
-  | SkeletonOperation;
+  | SkeletonOperation
+  | StageOperation
+  | CommitOperation
+  | SwapOperation
+  | ClearStagedOperation;
 
 export type OperationType = CanvasOperation["op"];
 
@@ -220,8 +256,21 @@ export type ClientMessage =
   | ActionMessage
   | SuggestionDismissedMessage;
 
+export interface TtsTextMessage {
+  type: "tts_text";
+  text: string;
+}
+
+/** Streamed status updates from the main orchestrator. Empty text = clear. */
+export interface AgentStatusMessage {
+  type: "agent_status";
+  text: string;
+}
+
 export type ServerMessage =
   | SessionReadyMessage
   | TranscriptMessage
   | TtsAudioMessage
-  | CanvasOpsMessage;
+  | CanvasOpsMessage
+  | TtsTextMessage
+  | AgentStatusMessage;

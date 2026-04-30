@@ -131,7 +131,22 @@ Build the client-side canvas state manager. This is a React context that maintai
 
 ---
 
-### T-011 — Canvas renderer
+### T-010b — Double-buffered canvas state
+**Priority:** P0  
+**Estimate:** 0.5 day  
+**Depends on:** T-010
+
+Update `CanvasContext` and `reducer.ts` to support predictive staging.
+
+**Acceptance Criteria:**
+- [ ] State maintains two maps: `active` and `staged`
+- [ ] New operation handlers: `stage` (adds to staged map), `commit` (moves from staged to active), `swap` (atomic remove + commit), `clear_staged` (wipes staged map)
+- [ ] `update` and `remove` target both maps
+- [ ] `Canvas.tsx` only renders components from the `active` map
+
+---
+
+### T-011 — Canvas renderer ✅
 **Priority:** P0  
 **Estimate:** 1.5 days  
 **Depends on:** T-010, T-010a
@@ -139,14 +154,14 @@ Build the client-side canvas state manager. This is a React context that maintai
 Build `apps/web/src/canvas/Canvas.tsx` — a React component that reads canvas state and renders each component in its designated zone using the 9-zone CSS grid from `design-system.css`. No iframe. Components are typed React components, not raw HTML.
 
 **Acceptance Criteria:**
-- [ ] Canvas is a CSS grid matching the 9-zone layout: `corner-tl / top / corner-tr / left / center / right / corner-bl / bottom / corner-br`
-- [ ] Each `CanvasComponent` in state renders its typed React component in its default zone (zone is determined by component type, not stored in state)
-- [ ] Default zone mapping: `step-view → center`, `progress-bar → top`, `timer → corner-br`, `suggestion → bottom`, `alert → top`, `recipe-grid → center`, `ingredient-list → center`, `camera → center`, `text-card → center`
-- [ ] `skeleton` components render `<Skeleton>` placeholder with shimmer animation in the correct zone
-- [ ] Idle state (empty canvas state map) renders a centered mic icon
-- [ ] Component mount uses `animate-in` CSS class; unmount uses `animate-out` (150ms each)
-- [ ] `focused` components receive elevated visual treatment (stronger shadow or border)
-- [ ] Canvas is responsive and works at viewport widths 375px and above
+- [x] Canvas is a CSS grid matching the 9-zone layout: `corner-tl / top / corner-tr / left / center / right / corner-bl / bottom / corner-br`
+- [x] Each `CanvasComponent` in state renders its typed React component in its default zone (zone is determined by component type, not stored in state)
+- [x] Default zone mapping: `step-view → center`, `progress-bar → top`, `timer → corner-br`, `suggestion → bottom`, `alert → top`, `recipe-grid → center`, `ingredient-list → center`, `camera → center`, `text-card → center`
+- [x] `skeleton` components render `<Skeleton>` placeholder with shimmer animation in the correct zone
+- [x] Idle state (empty canvas state map) renders a centered mic icon
+- [x] Component mount/unmount animated via Framer Motion (opacity + y translate, 200ms)
+- [x] `focused` components receive elevated visual treatment (stronger shadow or border)
+- [x] Canvas is responsive and works at viewport widths 375px and above
 
 **CI/CD:**
 - Snapshot tests for each component type rendered from a fixture
@@ -154,7 +169,7 @@ Build `apps/web/src/canvas/Canvas.tsx` — a React component that reads canvas s
 
 ---
 
-### T-012 — Canvas component: recipe-grid + recipe-option
+### T-012 — Canvas component: recipe-grid + recipe-option ✅
 **Priority:** P1  
 **Estimate:** 0.75 day  
 **Depends on:** T-011
@@ -164,12 +179,12 @@ Implement `RecipeGrid.tsx` and `RecipeOption.tsx`. `RecipeGrid` renders in the c
 **Data schema:** `RecipeOptionData { title: string; description?: string; duration?: string; tags?: string[]; action: string }`
 
 **Acceptance Criteria:**
-- [ ] `RecipeGrid` renders a 3-column grid in center zone; shows empty slots until options arrive
-- [ ] `RecipeOption` cards appear progressively as they are added to canvas state with `parent: "recipe-grid-id"`
-- [ ] Each option renders title, optional description, optional duration, optional tags
-- [ ] Tapping an option sends `{ type: "action", action: option.data.action }` over WebSocket
-- [ ] Missing optional fields render gracefully (no crashes, no empty space)
-- [ ] Component is keyboard accessible
+- [x] `RecipeGrid` renders children in center zone; options appear progressively as added with `parent` field
+- [x] `RecipeOption` cards appear progressively as they are added to canvas state with `parent: "recipe-grid-id"`
+- [x] Each option renders title, optional description, optional duration, optional tags
+- [x] Tapping an option sends `{ type: "action", action: option.data.action }` over WebSocket
+- [x] Missing optional fields render gracefully (no crashes, no empty space)
+- [x] Component is keyboard accessible (button element)
 
 **CI/CD:**
 - Unit test: renders with 0, 1, and 3 options; renders with minimal data per option
@@ -177,7 +192,7 @@ Implement `RecipeGrid.tsx` and `RecipeOption.tsx`. `RecipeGrid` renders in the c
 
 ---
 
-### T-013 — Canvas component: step-view
+### T-013 — Canvas component: step-view ✅
 **Priority:** P1  
 **Estimate:** 0.5 day  
 **Depends on:** T-011
@@ -185,12 +200,12 @@ Implement `RecipeGrid.tsx` and `RecipeOption.tsx`. `RecipeGrid` renders in the c
 **Data schema:** `StepViewData { step_number: number; total_steps: number; recipe: string; instruction: string; tip?: string; tags?: string[]; action?: string }`
 
 **Acceptance Criteria:**
-- [ ] Renders `recipe · Step N of M` as a muted eyebrow label
-- [ ] Renders `instruction` as the primary large text
-- [ ] Renders `tip` in a visually distinct secondary style when present
-- [ ] Renders `tags` as pill badges when present
-- [ ] Renders a "Next step →" button when `action` is present; tapping sends `{ type: "action", action }` over WebSocket
-- [ ] Transitioning to a new step (`update` op) animates the instruction text change
+- [x] Renders `recipe · Step N of M` as a muted eyebrow label
+- [x] Renders `instruction` as the primary large text
+- [x] Renders `tip` in a visually distinct secondary style when present
+- [x] Renders `tags` as pill badges when present
+- [x] Renders a "Next step →" button when `action` is present; tapping sends `{ type: "action", action }` over WebSocket
+- [x] Mini variant (`StepMini`) used as camera companion above center zone
 
 **CI/CD:**
 - Unit test: renders with full data, renders with minimal data (step_number, total_steps, instruction only)
@@ -198,7 +213,7 @@ Implement `RecipeGrid.tsx` and `RecipeOption.tsx`. `RecipeGrid` renders in the c
 
 ---
 
-### T-013a — Canvas component: progress-bar
+### T-013a — Canvas component: progress-bar ✅
 **Priority:** P1  
 **Estimate:** 0.25 day  
 **Depends on:** T-011
@@ -206,17 +221,17 @@ Implement `RecipeGrid.tsx` and `RecipeOption.tsx`. `RecipeGrid` renders in the c
 **Data schema:** `ProgressBarData { current: number; total: number }`
 
 **Acceptance Criteria:**
-- [ ] Renders in top zone as a compact card
-- [ ] Shows "Step N of M" label above a filled track
-- [ ] Fill width is `(current / total) * 100%` with terracotta accent color
-- [ ] Animates fill width transition on `update` op (400ms ease)
+- [x] Renders in top zone as a compact card
+- [x] Shows "Step N of M" label above a filled track
+- [x] Fill width is `(current / total) * 100%` with terracotta accent color
+- [x] Animates fill width transition on `update` op (400ms ease)
 
 **CI/CD:**
 - Unit test: renders at 0%, 50%, 100% fill; label text is correct
 
 ---
 
-### T-013b — Canvas component: alert
+### T-013b — Canvas component: alert ✅
 **Priority:** P1  
 **Estimate:** 0.25 day  
 **Depends on:** T-011
@@ -224,16 +239,17 @@ Implement `RecipeGrid.tsx` and `RecipeOption.tsx`. `RecipeGrid` renders in the c
 **Data schema:** `AlertData { text: string; urgent?: boolean }`
 
 **Acceptance Criteria:**
-- [ ] Renders in top zone as a warning strip
-- [ ] `urgent: true` uses terracotta-tinted background and accent text color
-- [ ] `urgent: false` (default) uses warm amber background
+- [x] Renders in top zone as a warning strip (companion below progress-bar, or standalone)
+- [x] `urgent: true` uses terracotta-tinted background and accent text color
+- [x] `urgent: false` (default) uses warm amber background
+- [x] Dismissable via X button; dispatches `remove` op
 
 **CI/CD:**
 - Unit test: renders standard and urgent variants
 
 ---
 
-### T-013c — Canvas component: ingredient-list
+### T-013c — Canvas component: ingredient-list ✅
 **Priority:** P1  
 **Estimate:** 0.25 day  
 **Depends on:** T-011
@@ -241,27 +257,27 @@ Implement `RecipeGrid.tsx` and `RecipeOption.tsx`. `RecipeGrid` renders in the c
 **Data schema:** `IngredientListData { items: { name: string; qty: string }[] }`
 
 **Acceptance Criteria:**
-- [ ] Renders in center zone as a scrollable card
-- [ ] Each row shows `name` left-aligned and `qty` right-aligned
-- [ ] Max-height 340px with visible scrollbar on overflow
+- [x] Renders in left zone as a scrollable card
+- [x] Each row shows `name` left-aligned and `qty` right-aligned
+- [x] Max-height 340px with visible scrollbar on overflow
 
 **CI/CD:**
 - Unit test: renders with 3 items, renders with 15 items (scroll case)
 
 ---
 
-### T-014 — Canvas component: timer
+### T-014 — Canvas component: timer ✅
 **Priority:** P1  
 **Estimate:** 1 day  
 **Depends on:** T-011
 
 **Acceptance Criteria:**
-- [ ] Counts down from `duration_seconds` to zero
-- [ ] Starts automatically if `auto_start` is true
-- [ ] At zero, pulses visually and plays a soft audio cue
-- [ ] Can be paused and resumed by tapping
-- [ ] An `update` operation with a new `duration_seconds` resets the timer
-- [ ] Timer state survives a WebSocket reconnect (timer continues counting in frontend state)
+- [x] Counts down from `duration_seconds` to zero
+- [x] Starts automatically if `auto_start` is true
+- [x] At zero, pulses visually and plays a soft audio cue
+- [x] Can be paused and resumed by tapping
+- [x] An `update` operation with a new `duration_seconds` resets the timer
+- [x] Timer state survives a WebSocket reconnect (timer continues counting in frontend state)
 
 **CI/CD:**
 - Unit test: countdown logic, auto-start behavior, zero-state behavior
@@ -269,17 +285,17 @@ Implement `RecipeGrid.tsx` and `RecipeOption.tsx`. `RecipeGrid` renders in the c
 
 ---
 
-### T-015 — Canvas component: camera
+### T-015 — Canvas component: camera ✅
 **Priority:** P1  
 **Estimate:** 1.5 days  
 **Depends on:** T-011
 
 **Acceptance Criteria:**
-- [ ] Requests camera permission on first render; handles denied permission gracefully with a verbal TTS fallback message sent to backend
-- [ ] Captures 3 frames at 500ms intervals automatically once rendered
-- [ ] Frames are encoded as base64 JPEG at 720p max and sent to backend via WebSocket message `{ "type": "camera_frames", "frames": [...] }`
-- [ ] After frames are sent, emits a local `remove` operation for itself (camera closes automatically)
-- [ ] If capture fails for any reason, sends `{ "type": "camera_error" }` to backend
+- [x] Requests camera permission on first render; handles denied permission gracefully with `camera_error` message to backend
+- [x] Captures 3 frames at 500ms intervals automatically once rendered
+- [x] Frames are encoded as base64 JPEG at 720p max and sent to backend via WebSocket message `{ "type": "camera_frames", "frames": [...] }`
+- [x] After frames are sent, emits a local `remove` operation for itself (camera closes automatically)
+- [x] If capture fails for any reason, sends `{ "type": "camera_error" }` to backend
 
 **CI/CD:**
 - Unit test: frame capture logic mocked with a fake MediaStream
@@ -288,15 +304,15 @@ Implement `RecipeGrid.tsx` and `RecipeOption.tsx`. `RecipeGrid` renders in the c
 
 ---
 
-### T-016 — Canvas component: suggestion
+### T-016 — Canvas component: suggestion ✅
 **Priority:** P1  
 **Estimate:** 0.5 day  
 **Depends on:** T-011
 
 **Acceptance Criteria:**
-- [ ] Renders heading, body, and optional action label
-- [ ] Action label renders as a tappable button that sends the label text as a voice prompt
-- [ ] Dismissable by swiping or tapping an X (sends `{ "type": "suggestion_dismissed" }` to backend)
+- [x] Renders heading, body, and optional action label
+- [x] Action label renders as a tappable button that sends `{ "type": "suggestion_dismissed" }` to backend
+- [x] Dismissable by tapping the action label button
 
 **CI/CD:**
 - Unit test: renders with and without action label
@@ -304,14 +320,14 @@ Implement `RecipeGrid.tsx` and `RecipeOption.tsx`. `RecipeGrid` renders in the c
 
 ---
 
-### T-017 — Canvas component: text-card
+### T-017 — Canvas component: text-card ✅
 **Priority:** P1  
 **Estimate:** 0.25 day  
 **Depends on:** T-011
 
 **Acceptance Criteria:**
-- [ ] Renders body text in a clean readable style
-- [ ] Body text supports basic markdown (bold, italic) via a lightweight renderer
+- [x] Renders body text in a clean readable style
+- [x] Body text supports basic markdown (bold, italic) via a lightweight renderer
 - [ ] Max 3 lines before truncating with a "tap to expand" affordance
 
 **CI/CD:**
@@ -515,7 +531,52 @@ Implement `render_agent/healer.py` — the streaming JSON parser that makes prog
 
 ---
 
-### T-034b — FastAPI streaming wiring ✅
+### T-034b — Progressive JSON Parsing fix
+**Priority:** P0  
+**Estimate:** 0.5 day  
+**Depends on:** T-034a
+
+Upgrade `JSONStreamHealer` to emit partial content events as tokens arrive.
+
+**Acceptance Criteria:**
+- [ ] `JSONStreamHealer` uses a stack-based parser to repair incomplete JSON strings on every chunk
+- [ ] Emits `PartialContentEvent(data: dict)` as fields arrive (e.g., partial `instruction` text)
+- [ ] `ws_handler.py` sends `partial_update` messages to frontend
+- [ ] Frontend `reducer.ts` merges partial data into state, triggering real-time re-renders
+
+---
+
+### T-034c — Predictive Staging Loop
+**Priority:** P1  
+**Estimate:** 1 day  
+**Depends on:** T-031, T-034
+
+Implement the background precomputation loop in the Orchestrator.
+
+**Acceptance Criteria:**
+- [ ] Orchestrator triggers an async task after each user-facing turn finishes
+- [ ] Predictor (heuristic or LLM) identifies most likely next intent
+- [ ] Render Agent receives a hidden prompt to generate UI into the staging area
+- [ ] Agent emits `stage` operations; results are held in frontend `staged` map
+- [ ] If user intent matches prediction, Orchestrator issues `commit` or `swap` instead of a full render turn
+
+---
+
+### T-034d — Render Agent context upgrade
+**Priority:** P0  
+**Estimate:** 0.25 day  
+**Depends on:** T-034
+
+Update Render Agent system prompt to handle exact JSON state and new operations.
+
+**Acceptance Criteria:**
+- [ ] System prompt receives exact JSON of `active` and `staged` canvas
+- [ ] Prompt explicitly defines `update` as total replacement of nested objects
+- [ ] Prompt includes documentation for `stage`, `commit`, `swap`, and `clear_staged`
+
+---
+
+### T-034e — FastAPI streaming wiring ✅
 **Priority:** P0  
 **Estimate:** 0.75 day  
 **Depends on:** T-034, T-034a

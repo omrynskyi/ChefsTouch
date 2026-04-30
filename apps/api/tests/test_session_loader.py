@@ -90,7 +90,7 @@ def test_load_returns_session_context():
     assert isinstance(ctx, SessionContext)
     assert ctx.session_id == SESSION_ID
     assert len(ctx.conversation) == 3
-    assert ctx.canvas_state == {"comp-1": {"id": "comp-1", "type": "timer"}}
+    assert ctx.canvas_state == {"active": {"comp-1": {"id": "comp-1", "type": "timer"}}, "staged": {}}
     assert ctx.preferences == {"dietary": "vegan"}
     assert ctx.active_recipe is None
     assert ctx.current_step is None

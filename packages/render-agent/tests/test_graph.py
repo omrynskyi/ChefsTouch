@@ -149,6 +149,10 @@ class TestCanvasOpSchema:
         op = CanvasOp(op="add", id="rg", type="recipe-grid", data={})
         assert op.type == "recipe-grid"
 
+    def test_recipe_option_requires_parent(self):
+        with pytest.raises(Exception):
+            CanvasOp(op="add", id="ro-1", type="recipe-option", data={"title": "Fried Rice", "action": "select_ro_1"})
+
     def test_move_requires_position(self):
         with pytest.raises(Exception):
             CanvasOp(op="move", id="x")
@@ -260,3 +264,76 @@ async def test_graph_ainvoke_with_canvas_state():
     graph = build_canvas_render_graph(make_llm(stream))
     result = await graph.ainvoke({"intent": "next step", "canvas_state": existing, "context": ""})
     assert result["ops"][0]["op"] == "update"
+
+
+@pytest.mark.asyncio
+async def test_graph_ainvoke_repairs_orphaned_recipe_options():
+    stream = (
+        '{"op":"add","id":"veg-opt-1","type":"recipe-option","parent":"veg-grid","data":{"title":"Classic Vegetable Fried Rice","action":"select_veg_opt_1"}}\n'
+        '{"op":"add","id":"veg-opt-2","type":"recipe-option","parent":"veg-grid","data":{"title":"Rainbow Veggie Bowl","action":"select_veg_opt_2"}}\n'
+    )
+    graph = build_canvas_render_graph(make_llm(stream))
+    result = await graph.ainvoke({"intent": "show recipe ideas", "canvas_state": {}, "context": ""})
+
+    assert result["errors"] == []
+    assert result["ops"][0] == {"op": "add", "id": "veg-grid", "type": "recipe-grid", "data": {}}
+    assert result["ops"][1]["id"] == "veg-opt-1"
+    assert result["ops"][2]["id"] == "veg-opt-2"
+
+
+@pytest.mark.asyncio
+async def test_graph_ainvoke_does_not_duplicate_existing_recipe_grid_from_canvas_state():
+    stream = (
+        '{"op":"add","id":"veg-opt-1","type":"recipe-option","parent":"veg-grid","data":{"title":"Classic Vegetable Fried Rice","action":"select_veg_opt_1"}}\n'
+    )
+    canvas_state = {"active": {"veg-grid": {"id": "veg-grid", "type": "recipe-grid", "data": {}}}, "staged": {}}
+    graph = build_canvas_render_graph(make_llm(stream))
+    result = await graph.ainvoke({"intent": "show recipe ideas", "canvas_state": canvas_state, "context": ""})
+
+    assert result["errors"] == []
+    assert result["ops"] == [
+        {
+            "op": "add",
+            "id": "veg-opt-1",
+            "type": "recipe-option",
+            "parent": "veg-grid",
+            "data": {"title": "Classic Vegetable Fried Rice", "action": "select_veg_opt_1"},
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_graph_ainvoke_does_not_duplicate_recipe_grid_in_same_batch():
+    stream = (
+        '{"op":"add","id":"veg-grid","type":"recipe-grid","data":{}}\n'
+        '{"op":"add","id":"veg-opt-1","type":"recipe-option","parent":"veg-grid","data":{"title":"Classic Vegetable Fried Rice","action":"select_veg_opt_1"}}\n'
+    )
+    graph = build_canvas_render_graph(make_llm(stream))
+    result = await graph.ainvoke({"intent": "show recipe ideas", "canvas_state": {}, "context": ""})
+
+    assert result["errors"] == []
+    assert result["ops"] == [
+        {"op": "add", "id": "veg-grid", "type": "recipe-grid", "data": {}},
+        {
+            "op": "add",
+            "id": "veg-opt-1",
+            "type": "recipe-option",
+            "parent": "veg-grid",
+            "data": {"title": "Classic Vegetable Fried Rice", "action": "select_veg_opt_1"},
+        },
+    ]
+
+
+@pytest.mark.asyncio
+async def test_graph_ainvoke_drops_recipe_options_when_parent_conflicts():
+    stream = (
+        '{"op":"add","id":"veg-opt-1","type":"recipe-option","parent":"veg-grid","data":{"title":"Classic Vegetable Fried Rice","action":"select_veg_opt_1"}}\n'
+    )
+    canvas_state = {"active": {"veg-grid": {"id": "veg-grid", "type": "text-card", "data": {"body": "Hi"}}}, "staged": {}}
+    graph = build_canvas_render_graph(make_llm(stream))
+    result = await graph.ainvoke({"intent": "show recipe ideas", "canvas_state": canvas_state, "context": ""})
+
+    assert result["ops"] == []
+    assert result["errors"] == [
+        "Dropped recipe-option 'veg-opt-1' because parent 'veg-grid' exists as 'text-card'."
+    ]
