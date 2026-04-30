@@ -85,7 +85,7 @@ def test_recipe_selection_action_sends_recipe_grid_before_options(new_session_cl
 
     with patch("ws_handler.SessionLoader", _LoaderStub), \
          patch("main_agent.run_main_agent", new=AsyncMock(return_value=result)), \
-         patch("ws_handler._get_llm", return_value=object()):
+         patch("ws_handler.get_llm", return_value=object()):
         with new_session_client.websocket_connect("/ws") as ws:
             ws.send_json({"type": "init", "session_id": existing_session_id})
             assert ws.receive_json()["type"] == "session_ready"

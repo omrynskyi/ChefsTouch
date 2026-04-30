@@ -9,24 +9,11 @@ from fastapi.websockets import WebSocketDisconnect
 
 from canvas_state import apply_op
 from db import get_client
+from llm import get_llm
 from models import SessionContext
 from session_loader import SessionLoader, SessionNotFoundError
 
 logger = logging.getLogger(__name__)
-
-_llm = None
-
-
-def _get_llm():
-    global _llm
-    if _llm is None:
-        from langchain_openai import ChatOpenAI
-        import os
-        base_url = os.getenv("LLM_BASE_URL", "http://127.0.0.1:1234/v1")
-        model = os.getenv("LLM_MODEL", "google/gemma-4-26b-a4b")
-        api_key = os.getenv("OPENAI_API_KEY", "lm-studio")
-        _llm = ChatOpenAI(model=model, temperature=0.3, base_url=base_url, api_key=api_key)
-    return _llm
 
 
 async def handle_websocket(websocket: WebSocket) -> None:
@@ -79,7 +66,7 @@ async def _handle_action(websocket: WebSocket, session_id: str, action: str) -> 
     async def _send_status(text: str) -> None:
         await websocket.send_text(json.dumps({"type": "agent_status", "text": text}))
 
-    result = await run_main_agent(intent, context, ctx.canvas_state, _get_llm(), on_status=_send_status)
+    result = await run_main_agent(intent, context, ctx.canvas_state, get_llm(), on_status=_send_status)
 
     await _send_status("")  # clear the status bar
 
