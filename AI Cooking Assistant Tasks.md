@@ -1,6 +1,6 @@
 # AI Cooking Assistant — Task Breakdown
 
-**Version:** 0.1  
+**Version:** 0.2  
 **Author:** Oleg Mrynskyi  
 **Status:** Active  
 **Last Updated:** April 2026
@@ -82,25 +82,51 @@ Establish a persistent WebSocket connection between the React frontend and FastA
 
 ## Epic 1 — Canvas Engine
 
+### T-010a — Update shared types package ✅
+**Priority:** P0  
+**Estimate:** 0.5 day  
+**Depends on:** T-001
+
+Update `packages/types/src/index.ts` to reflect the new typed component catalog.
+
+**Acceptance Criteria:**
+- [x] `PositionToken` updated to match design-system.css zone names: `center | top | bottom | left | right | corner-tl | corner-tr | corner-bl | corner-br`
+- [x] `StepViewData` extended with `recipe: string`, `tags?: string[]`, `action?: string`
+- [x] New interfaces added: `ProgressBarData`, `AlertData`, `RecipeGridData`, `RecipeOptionData`, `IngredientListData`
+- [x] `ComponentType` union updated to include all 10 catalog types
+- [x] `ComponentDataMap` updated to map new types to their data interfaces
+- [x] `CanvasComponent` extended with `data: ... | null`, `skeleton?: boolean`, `parent?: string`
+- [x] `SkeletonOperation { op: "skeleton"; id: string; type: ComponentType }` added to `CanvasOperation` union
+- [x] `ActionMessage { type: "action"; action: string }` added to `ClientMessage` union
+- [x] `npm run build --workspace=packages/types` passes
+- [x] `npm run type-check --workspace=apps/web` passes
+
+**CI/CD:**
+- Type check runs on every PR
+
+---
+
 ### T-010 — Canvas state manager ✅
 **Priority:** P0  
 **Estimate:** 1 day  
-**Depends on:** T-003
+**Depends on:** T-003, T-010a
 
 Build the client-side canvas state manager. This is a React context that maintains a map of `component_id -> component` and exposes a `dispatch(operation)` function. The WebSocket listener feeds operations into this dispatcher.
 
 **Acceptance Criteria:**
 - [x] Canvas state is a `Map<string, CanvasComponent>` maintained in a React context
-- [x] `dispatch` handles all five operation types: `add`, `update`, `remove`, `focus`, `move`
-- [x] `add` with a duplicate ID is a no-op and logs a warning
+- [x] `dispatch` handles all six operation types: `add`, `update`, `remove`, `focus`, `move`, `skeleton`
+- [x] `add` with a duplicate ID **upserts** (shallow-merge update) — agent may safely re-add without tracking state perfectly
+- [x] `skeleton` op type: stores `{ id, type, data: null, skeleton: true }` in state; subsequent `add` for same id replaces it with real data and sets `skeleton: false`
 - [x] `remove` on a non-existent ID is a no-op
-- [x] `update` deep-merges the incoming `data` with existing component data
+- [x] `update` shallow-merges the incoming `data` with existing component data
 - [x] `focus` sets a `focused: true` flag on the target component and clears it on all others
 - [x] All operations are validated against the `CanvasOperation` type before dispatch
 - [x] Invalid operations are logged and discarded without crashing
+- [x] `CanvasContext` batches ops arriving within 16ms into a single `requestAnimationFrame` flush — prevents intermediate re-renders during rapid streaming
 
 **CI/CD:**
-- Unit tests cover all five operation types including edge cases (duplicate add, remove missing, etc.)
+- [x] 25 unit tests covering all six operation types including skeleton, upsert, and batching
 - 100% branch coverage required on the dispatcher
 
 ---
@@ -108,17 +134,18 @@ Build the client-side canvas state manager. This is a React context that maintai
 ### T-011 — Canvas renderer
 **Priority:** P0  
 **Estimate:** 1.5 days  
-**Depends on:** T-010
+**Depends on:** T-010, T-010a
 
-Build the canvas renderer: a React component that reads canvas state and renders each component by type. The idle state (empty canvas with mic icon) is handled here.
+Build `apps/web/src/canvas/Canvas.tsx` — a React component that reads canvas state and renders each component in its designated zone using the 9-zone CSS grid from `design-system.css`. No iframe. Components are typed React components, not raw HTML.
 
 **Acceptance Criteria:**
-- [ ] Canvas renders all components currently in state
-- [ ] Each component type renders its designated React component (stubs acceptable at this stage)
+- [ ] Canvas is a CSS grid matching the 9-zone layout: `corner-tl / top / corner-tr / left / center / right / corner-bl / bottom / corner-br`
+- [ ] Each `CanvasComponent` in state renders its typed React component in its default zone (zone is determined by component type, not stored in state)
+- [ ] Default zone mapping: `step-view → center`, `progress-bar → top`, `timer → corner-br`, `suggestion → bottom`, `alert → top`, `recipe-grid → center`, `ingredient-list → center`, `camera → center`, `text-card → center`
+- [ ] `skeleton` components render `<Skeleton>` placeholder with shimmer animation in the correct zone
 - [ ] Idle state (empty canvas state map) renders a centered mic icon
-- [ ] Component mount/unmount is animated (fade in/out, 150ms)
-- [ ] `focused` components receive a visual prominence treatment (exact styling TBD)
-- [ ] Position tokens (`center`, `bottom-right`, etc.) map to CSS layout rules
+- [ ] Component mount uses `animate-in` CSS class; unmount uses `animate-out` (150ms each)
+- [ ] `focused` components receive elevated visual treatment (stronger shadow or border)
 - [ ] Canvas is responsive and works at viewport widths 375px and above
 
 **CI/CD:**
@@ -127,21 +154,25 @@ Build the canvas renderer: a React component that reads canvas state and renders
 
 ---
 
-### T-012 — Canvas component: recipe-card
+### T-012 — Canvas component: recipe-grid + recipe-option
 **Priority:** P1  
-**Estimate:** 0.5 day  
+**Estimate:** 0.75 day  
 **Depends on:** T-011
 
-Implement the `recipe-card` React component. Renders title, description, duration, servings, and tags from schema.
+Implement `RecipeGrid.tsx` and `RecipeOption.tsx`. `RecipeGrid` renders in the center zone; `RecipeOption` children are inserted into it as they stream in (via `parent` field in their canvas state entry).
+
+**Data schema:** `RecipeOptionData { title: string; description?: string; duration?: string; tags?: string[]; action: string }`
 
 **Acceptance Criteria:**
-- [ ] Renders all fields from the `recipe-card` schema
-- [ ] Missing optional fields render gracefully (no crashes, no empty boxes)
+- [ ] `RecipeGrid` renders a 3-column grid in center zone; shows empty slots until options arrive
+- [ ] `RecipeOption` cards appear progressively as they are added to canvas state with `parent: "recipe-grid-id"`
+- [ ] Each option renders title, optional description, optional duration, optional tags
+- [ ] Tapping an option sends `{ type: "action", action: option.data.action }` over WebSocket
+- [ ] Missing optional fields render gracefully (no crashes, no empty space)
 - [ ] Component is keyboard accessible
-- [ ] Clicking/tapping a recipe card emits a `sendPrompt("I want to make {title}")` event (placeholder for voice — user might tap on mobile)
 
 **CI/CD:**
-- Unit test: renders with full data, renders with minimal data
+- Unit test: renders with 0, 1, and 3 options; renders with minimal data per option
 - Accessibility audit: no critical axe violations
 
 ---
@@ -151,15 +182,71 @@ Implement the `recipe-card` React component. Renders title, description, duratio
 **Estimate:** 0.5 day  
 **Depends on:** T-011
 
+**Data schema:** `StepViewData { step_number: number; total_steps: number; recipe: string; instruction: string; tip?: string; tags?: string[]; action?: string }`
+
 **Acceptance Criteria:**
-- [ ] Renders step number, total steps, instruction, and optional tip
-- [ ] Step progress indicator (e.g. "Step 2 of 7") is visually prominent
-- [ ] Tip renders in a visually distinct secondary style when present
-- [ ] Transitioning to a new step (update operation) animates the instruction text change
+- [ ] Renders `recipe · Step N of M` as a muted eyebrow label
+- [ ] Renders `instruction` as the primary large text
+- [ ] Renders `tip` in a visually distinct secondary style when present
+- [ ] Renders `tags` as pill badges when present
+- [ ] Renders a "Next step →" button when `action` is present; tapping sends `{ type: "action", action }` over WebSocket
+- [ ] Transitioning to a new step (`update` op) animates the instruction text change
 
 **CI/CD:**
-- Unit test: renders with and without tip
+- Unit test: renders with full data, renders with minimal data (step_number, total_steps, instruction only)
 - Snapshot test for step transition animation state
+
+---
+
+### T-013a — Canvas component: progress-bar
+**Priority:** P1  
+**Estimate:** 0.25 day  
+**Depends on:** T-011
+
+**Data schema:** `ProgressBarData { current: number; total: number }`
+
+**Acceptance Criteria:**
+- [ ] Renders in top zone as a compact card
+- [ ] Shows "Step N of M" label above a filled track
+- [ ] Fill width is `(current / total) * 100%` with terracotta accent color
+- [ ] Animates fill width transition on `update` op (400ms ease)
+
+**CI/CD:**
+- Unit test: renders at 0%, 50%, 100% fill; label text is correct
+
+---
+
+### T-013b — Canvas component: alert
+**Priority:** P1  
+**Estimate:** 0.25 day  
+**Depends on:** T-011
+
+**Data schema:** `AlertData { text: string; urgent?: boolean }`
+
+**Acceptance Criteria:**
+- [ ] Renders in top zone as a warning strip
+- [ ] `urgent: true` uses terracotta-tinted background and accent text color
+- [ ] `urgent: false` (default) uses warm amber background
+
+**CI/CD:**
+- Unit test: renders standard and urgent variants
+
+---
+
+### T-013c — Canvas component: ingredient-list
+**Priority:** P1  
+**Estimate:** 0.25 day  
+**Depends on:** T-011
+
+**Data schema:** `IngredientListData { items: { name: string; qty: string }[] }`
+
+**Acceptance Criteria:**
+- [ ] Renders in center zone as a scrollable card
+- [ ] Each row shows `name` left-aligned and `qty` right-aligned
+- [ ] Max-height 340px with visible scrollbar on overflow
+
+**CI/CD:**
+- Unit test: renders with 3 items, renders with 15 items (scroll case)
 
 ---
 
@@ -381,22 +468,75 @@ Implement the Main Assistant as a LangGraph node. It receives session context an
 
 ---
 
-### T-034 — Render Agent
+### T-034 — Render Agent ✅
 **Priority:** P0  
 **Estimate:** 1.5 days  
-**Depends on:** T-031
+**Depends on:** T-010a
+
+Rewrite render-agent to use the A2UI-style typed component catalog with JSONL streaming. No raw HTML, no vector search, no iframe.
 
 **Acceptance Criteria:**
-- [ ] Accepts `{ intent: string, current_canvas: CanvasState, data: any }` as input
-- [ ] Returns an ordered array of canvas operations conforming to the `CanvasOperation` schema
-- [ ] Each operation is validated against the schema before being returned
-- [ ] Invalid operations are dropped and logged — never returned to client
-- [ ] Agent never returns more than 5 operations per turn
-- [ ] Position tokens are chosen contextually: timers go `bottom-right`, suggestions go `bottom`, recipe cards go `center`
+- [x] Accepts `{ intent: string, context: string, canvas_state: dict }` as input via `astream_events()`
+- [x] LLM outputs **JSONL** (one JSON object per line) — no array brackets
+- [x] Each line is a valid canvas op: `{ op, id, type, data }` for add; `{ op, id, data }` for update; `{ op, id }` for remove/focus
+- [x] Agent only uses component types from the catalog: `step-view`, `progress-bar`, `timer`, `suggestion`, `alert`, `recipe-grid`, `recipe-option`, `ingredient-list`, `camera`, `text-card`
+- [x] Agent receives a compact canvas state summary (`CURRENT CANVAS: - id (type): ...`) and emits `update` ops for existing IDs
+- [x] System prompt encodes topological ordering rule: parents before children, most important first
+- [x] `CanvasOp` schema validation: unknown `type` values and missing required `data` keys are caught and dropped
+- [x] `recipe-option` ops include `parent` field referencing their `recipe-grid` id
+- [x] `build_canvas_render_graph(llm)` provides a non-streaming `ainvoke()` wrapper for batch use and tests
+- [x] Dropped LangGraph `StateGraph`, CSS vector search tool, bleach sanitizer, retriever arg
 
 **CI/CD:**
-- Unit test: output schema validation, operation count limit, position token assignment for each component type
+- [x] 24 unit tests: healer, schema validation, astream_events integration, batch wrapper
 - Eval: see Eval section E-004
+
+---
+
+### T-034a — JSONL Stream Healer ✅
+**Priority:** P0  
+**Estimate:** 1 day  
+**Depends on:** T-034
+
+Implement `render_agent/healer.py` — the streaming JSON parser that makes progressive rendering possible.
+
+**Acceptance Criteria:**
+- [x] `JSONStreamHealer.feed(chunk: str) → list[SkeletonEvent | ContentEvent]` processes token chunks as they arrive
+- [x] `SkeletonEvent(id, component_type)` is emitted once per op when `"type":` and `"id":` are both visible in the partial buffer via regex — before the object is complete
+- [x] `ContentEvent(op: dict)` is emitted when brace depth returns to 0 and `json.loads` succeeds
+- [x] State machine correctly handles JSON strings containing `{`, `}`, `"`, and `\` escape sequences
+- [x] Handles nested objects within `data` (e.g. `ingredient-list` items array with inner `{}`) correctly via depth tracking
+- [x] `finalize() → list[ContentEvent]` attempts to parse remaining buffer at stream end as fallback
+- [x] Duplicate `SkeletonEvent` for same id is suppressed (idempotent guard via `skeleton_emitted` set)
+- [x] `line_buffer` resets after each `ContentEvent`; `\n` between objects at depth 0 also resets buffer
+
+**CI/CD:**
+- [x] 7 unit tests: complete object, skeleton timing, single-emit guard, multi-op JSONL, finalize fallback, malformed JSON, nested objects
+
+---
+
+### T-034b — FastAPI streaming wiring ✅
+**Priority:** P0  
+**Estimate:** 0.75 day  
+**Depends on:** T-034, T-034a
+
+Wire the streaming render agent into the FastAPI WebSocket handler so canvas ops reach the React app component-by-component as the LLM streams.
+
+**Acceptance Criteria:**
+- [x] `ws_handler.py` handles `{ "type": "action", "action": "..." }` client messages
+- [x] On action: loads session via `SessionLoader`, builds context string from active recipe + step
+- [x] Calls `astream_events(action, context, canvas_state, llm)` — `AsyncGenerator[SkeletonEvent | ContentEvent]`
+- [x] Each `SkeletonEvent` immediately sends `{ "type": "canvas_ops", "operations": [{ "op": "skeleton", "id": ..., "type": ... }] }` over WebSocket
+- [x] Each `ContentEvent` immediately sends `{ "type": "canvas_ops", "operations": [op] }` over WebSocket
+- [x] `canvas_state.apply_op()` mutates session canvas state for each ContentEvent
+- [x] After streaming completes, updated session (including new canvas_state) is persisted via `SessionLoader.save()`
+- [x] LLM is a module-level lazy singleton (`ChatOpenAI(model="gpt-4o-mini")`) initialized on first action
+- [x] `langchain-core` and `langchain-openai` added to `apps/api/requirements.txt`
+- [ ] Wire to Main Assistant tool call once T-031 is implemented (currently called directly from action handler as dev shortcut)
+
+**CI/CD:**
+- Existing 11 API tests pass unmodified
+- Integration test (future): mock LLM that streams 3 JSONL lines; assert 6 WS messages sent (3 skeleton + 3 content) in correct order
 
 ---
 
@@ -596,13 +736,13 @@ e2e-nightly  → E-005 (runs nightly via cron, not on PR)
 
 The recommended build sequence respects dependencies and gets a working demo loop as fast as possible.
 
-**Week 1** — Foundation. Complete T-001, T-002, T-003, T-010, T-011. Goal: blank canvas receiving and rendering a hardcoded canvas operation from the backend over WebSocket.
+**Week 1** — Foundation + types. Complete T-001, T-002, T-003, T-010a, T-010. Goal: shared types up to date, canvas state manager handling skeleton + upsert + batching.
 
-**Week 2** — Canvas and Voice. Complete T-012 through T-017, T-020, T-021, T-022. Goal: all six components rendering, voice captured and transcribed, TTS playing back.
+**Week 2** — Canvas renderer + render agent. Complete T-011, T-012 through T-013c, T-034, T-034a, T-034b. Goal: React canvas renders all component types from streamed JSONL ops; skeleton placeholders appear immediately; full streaming loop from LLM to browser working.
 
-**Week 3** — Agent harness. Complete T-030, T-031, T-034. Goal: voice in, canvas ops out, full loop working end to end with stub Recipe and Image agents.
+**Week 3** — Remaining components + voice. Complete T-014, T-015, T-016, T-017, T-020, T-021, T-022. Goal: timer, camera, suggestion, text-card components; voice pipeline capturing, transcribing, and playing TTS.
 
-**Week 4** — Full agents and evals. Complete T-032, T-033, T-035, E-001 through E-004. Goal: all agents functional, eval suite passing, proactive suggestions firing.
+**Week 4** — Agent harness + recipe + image. Complete T-030, T-031, T-032, T-033, T-035, E-001 through E-004. Goal: full multi-agent loop, all evals passing, proactive suggestions firing.
 
 **Week 5** — CI/CD and polish. Complete T-050 through T-053. Goal: full pipeline running, staging deployed, nightly E-005 eval green.
 
@@ -610,14 +750,13 @@ The recommended build sequence respects dependencies and gets a working demo loo
 
 ## Open Tasks (Unscheduled)
 
-These tasks are acknowledged but not yet estimated or scheduled. They correspond to open questions from the PRD.
-
 - `T-OQ-1` Define assistant personality and write system prompt
-- `T-OQ-2` Design and implement component visual styles
+- ~~`T-OQ-2` Design and implement component visual styles~~ ✅ Resolved — design-system.css + 9-zone grid defined; React component library in T-011 through T-013c
 - `T-OQ-3` Finalize STT provider (WASM Whisper vs Web Speech API)
 - `T-OQ-4` Recipe seed dataset sourcing and embedding pipeline
-- `T-OQ-5` Canvas position system design (token-based vs coordinate grid)
+- ~~`T-OQ-5` Canvas position system design (token-based vs coordinate grid)~~ ✅ Resolved — 9-zone named CSS grid with per-type default positions; agent never emits zone
 - `T-OQ-6` Session expiry policy and cleanup job
+- ~~`T-OQ-9` Design snippet index: manual curation vs auto-generated~~ ✅ Resolved — inline typed component catalog in system prompt; no snippet index needed
 
 ---
 

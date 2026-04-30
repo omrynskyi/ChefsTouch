@@ -1,69 +1,60 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List, Literal, Optional
-from langchain_core.documents import Document
+
 from pydantic import BaseModel, model_validator
 
-VALID_ZONES = {"center", "top", "bottom", "left", "right", "corner-tl", "corner-tr", "corner-bl", "corner-br"}
+VALID_TYPES = {
+    "step-view", "progress-bar", "timer", "alert",
+    "recipe-grid", "recipe-option", "ingredient-list",
+    "camera", "suggestion", "text-card",
+}
+
+VALID_ZONES = {
+    "center", "top", "bottom", "left", "right",
+    "corner-tl", "corner-tr", "corner-bl", "corner-br",
+}
+
+REQUIRED_DATA_KEYS: Dict[str, List[str]] = {
+    "step-view": ["step_number", "total_steps", "recipe", "instruction"],
+    "progress-bar": ["current", "total"],
+    "timer": ["duration_seconds", "label", "auto_start"],
+    "alert": ["text"],
+    "recipe-grid": [],
+    "recipe-option": ["title", "action"],
+    "ingredient-list": ["items"],
+    "camera": ["prompt"],
+    "suggestion": ["heading", "body"],
+    "text-card": ["body"],
+}
 
 
 class CanvasOp(BaseModel):
     op: Literal["add", "update", "remove", "focus", "move"]
     id: str
-    html: Optional[str] = None   # required for add, update
-    zone: Optional[str] = None   # required for move
+    type: Optional[str] = None
+    data: Optional[Dict[str, Any]] = None
+    position: Optional[str] = None
+    parent: Optional[str] = None
 
     @model_validator(mode="after")
     def validate_op_fields(self) -> "CanvasOp":
-        if self.op in ("add", "update") and not self.html:
-            raise ValueError(f"html is required for op={self.op}")
+        if self.op == "add":
+            if not self.type:
+                raise ValueError("type is required for op=add")
+            if self.type not in VALID_TYPES:
+                raise ValueError(f"unknown type '{self.type}', must be one of {sorted(VALID_TYPES)}")
+            if self.data is None:
+                raise ValueError("data is required for op=add")
+            required = REQUIRED_DATA_KEYS.get(self.type, [])
+            missing = [k for k in required if k not in self.data]
+            if missing:
+                raise ValueError(f"op=add type={self.type} missing required data keys: {missing}")
         if self.op == "move":
-            if not self.zone:
-                raise ValueError("zone is required for op=move")
-            if self.zone not in VALID_ZONES:
-                raise ValueError(f"invalid zone '{self.zone}', must be one of {VALID_ZONES}")
+            if not self.position:
+                raise ValueError("position is required for op=move")
+            if self.position not in VALID_ZONES:
+                raise ValueError(
+                    f"invalid position '{self.position}', must be one of {sorted(VALID_ZONES)}"
+                )
         return self
-
-
-class CanvasComponent(BaseModel):
-    id: str
-    html: Optional[str] = None
-    zone: Optional[str] = None
-
-
-class CanvasState(BaseModel):
-    components: Dict[str, CanvasComponent] = {}
-
-    def summary(self) -> str:
-        if not self.components:
-            return "empty"
-        return ", ".join(
-            f"{cid}(zone={c.zone or '?'})" for cid, c in self.components.items()
-        )
-
-
-class RenderInput(BaseModel):
-    intent: str
-    canvas_state: CanvasState
-    context: str
-
-
-class RenderOutput(BaseModel):
-    ops: List[CanvasOp]
-    errors: List[str] = []
-
-
-class CSSEntry(BaseModel):
-    """A single documented CSS class or data-component declaration stored in the vector index."""
-    name: str                        # e.g. "card.glass" or 'data-component="timer"'
-    description: str                 # what it does and when to use it
-    tags: List[str]                  # semantic tags for retrieval
-    example: Optional[str] = None   # minimal inline usage, not a full HTML block
-
-    def to_document(self) -> Document:
-        parts = [f"{self.name}: {self.description}"]
-        if self.tags:
-            parts.append(f"tags: {', '.join(self.tags)}")
-        if self.example:
-            parts.append(f"example: {self.example}")
-        return Document(page_content=" | ".join(parts), metadata={"name": self.name})

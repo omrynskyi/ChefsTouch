@@ -1,6 +1,6 @@
 import type { CanvasComponent, CanvasOperation, CanvasState } from "@pair-cooking/types";
 
-const VALID_OPS = new Set(["add", "update", "remove", "focus", "move"]);
+const VALID_OPS = new Set(["add", "update", "remove", "focus", "move", "skeleton"]);
 
 export function validateOperation(op: unknown): op is CanvasOperation {
   if (!op || typeof op !== "object") return false;
@@ -14,18 +14,17 @@ export function canvasReducer(state: CanvasState, op: CanvasOperation): CanvasSt
   const next = new Map(state);
 
   switch (op.op) {
+    case "skeleton": {
+      if (next.has(op.id)) return state;
+      next.set(op.id, { id: op.id, type: op.type, data: null, focused: false, skeleton: true });
+      return next;
+    }
+
     case "add": {
-      if (next.has(op.id)) {
-        console.warn(`[Canvas] add: duplicate id "${op.id}", ignoring`);
-        return state;
-      }
-      const component: CanvasComponent = {
-        id: op.id,
-        type: op.type,
-        data: op.data,
-        position: op.position,
-        focused: false,
-      };
+      const existing = next.get(op.id);
+      const component: CanvasComponent = existing
+        ? { ...existing, data: { ...existing.data, ...op.data } as CanvasComponent["data"], skeleton: false }
+        : { id: op.id, type: op.type, data: op.data, position: op.position, parent: op.parent, focused: false };
       next.set(op.id, component);
       return next;
     }

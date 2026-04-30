@@ -1,15 +1,18 @@
 from __future__ import annotations
 
 import json
-from typing import Any, List, Sequence
-from unittest.mock import AsyncMock, MagicMock
+from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
-from langchain_core.documents import Document
-from langchain_core.messages import AIMessage
 
-from render_agent import build_canvas_render_graph
-from render_agent.sanitizer import sanitize_html
+from render_agent import (
+    ContentEvent,
+    JSONStreamHealer,
+    SkeletonEvent,
+    astream_events,
+    build_canvas_render_graph,
+)
 from render_agent.schemas import CanvasOp
 
 
@@ -18,182 +21,242 @@ from render_agent.schemas import CanvasOp
 # ---------------------------------------------------------------------------
 
 def make_llm(response: str) -> Any:
+    """LLM mock that yields response as a single chunk via astream()."""
     llm = MagicMock()
-    llm.ainvoke = AsyncMock(return_value=AIMessage(content=response))
+
+    async def _astream(messages, **kwargs):
+        chunk = MagicMock()
+        chunk.content = response
+        yield chunk
+
+    llm.astream = _astream
     return llm
 
 
-def make_retriever(docs: List[Document]) -> Any:
-    retriever = MagicMock()
-    retriever.ainvoke = AsyncMock(return_value=docs)
-    return retriever
+def make_chunked_llm(chunks: list) -> Any:
+    """LLM mock that yields multiple chunks in order."""
+    llm = MagicMock()
 
+    async def _astream(messages, **kwargs):
+        for text in chunks:
+            chunk = MagicMock()
+            chunk.content = text
+            yield chunk
 
-STEP_SNIPPET = Document(
-    page_content='card elevated: Card with drop shadow. Use for primary focus components. | tags: card, shadow, primary',
-    metadata={"name": "card elevated"},
-)
-
-TIMER_SNIPPET = Document(
-    page_content='data-component="timer": Initializes a countdown timer. Required: data-duration, data-autostart, data-label. | tags: timer, countdown, component | example: <div class="card compact glass" data-component="timer" data-duration="6m" data-autostart="true" data-label="Chicken">',
-    metadata={"name": 'data-component="timer"'},
-)
+    llm.astream = _astream
+    return llm
 
 
 # ---------------------------------------------------------------------------
-# Graph integration tests
+# JSONStreamHealer unit tests
 # ---------------------------------------------------------------------------
 
-async def test_graph_returns_add_ops():
-    llm_response = json.dumps([
-        {
-            "op": "add",
-            "id": "step-1",
-            "html": '<div zone="center" size="large" layer="base" class="card elevated animate-in"><p class="text-primary size-lg">Boil water</p></div>',
-        }
-    ])
-    graph = build_canvas_render_graph(make_llm(llm_response), make_retriever([STEP_SNIPPET]))
-    result = await graph.ainvoke({"intent": "show step 1", "canvas_state": {}, "context": "Pasta"})
+class TestJSONStreamHealer:
+    def test_complete_object_emits_content_event(self):
+        healer = JSONStreamHealer()
+        obj = '{"op":"remove","id":"x"}'
+        events = healer.feed(obj)
+        assert len(events) == 1
+        assert isinstance(events[0], ContentEvent)
+        assert events[0].op == {"op": "remove", "id": "x"}
 
+    def test_skeleton_fires_before_object_closes(self):
+        healer = JSONStreamHealer()
+        partial = '{"op":"add","id":"step-1","type":"step-view","data":{"step_number":1'
+        events = healer.feed(partial)
+        skeleton_events = [e for e in events if isinstance(e, SkeletonEvent)]
+        assert len(skeleton_events) == 1
+        assert skeleton_events[0].id == "step-1"
+        assert skeleton_events[0].component_type == "step-view"
+
+    def test_skeleton_emitted_only_once_per_id(self):
+        healer = JSONStreamHealer()
+        # Feed in chunks — skeleton should fire exactly once
+        full = '{"op":"add","id":"step-1","type":"step-view","data":{"step_number":1,"total_steps":3,"recipe":"Test","instruction":"Boil water"}}'
+        events = []
+        for char in full:
+            events.extend(healer.feed(char))
+        skeleton_events = [e for e in events if isinstance(e, SkeletonEvent)]
+        assert len(skeleton_events) == 1
+
+    def test_multiple_objects_in_stream(self):
+        healer = JSONStreamHealer()
+        stream = '{"op":"remove","id":"a"}\n{"op":"remove","id":"b"}\n'
+        events = healer.feed(stream)
+        content_events = [e for e in events if isinstance(e, ContentEvent)]
+        assert len(content_events) == 2
+        ids = [e.op["id"] for e in content_events]
+        assert ids == ["a", "b"]
+
+    def test_finalize_parses_remaining_buffer(self):
+        healer = JSONStreamHealer()
+        # Partial object without trailing newline
+        healer.feed('{"op":"remove","id":"x"}')
+        # Simulate that content was already emitted by feed
+        # Let's test finalize with a partial
+        healer2 = JSONStreamHealer()
+        healer2.line_buffer = '{"op":"remove","id":"y"}'
+        healer2.depth = 0
+        events = healer2.finalize()
+        assert len(events) == 1
+        assert isinstance(events[0], ContentEvent)
+
+    def test_malformed_json_produces_no_content_event(self):
+        healer = JSONStreamHealer()
+        events = healer.feed('{"op":"add","id":broken}')
+        content_events = [e for e in events if isinstance(e, ContentEvent)]
+        assert len(content_events) == 0
+
+    def test_nested_objects_emit_correctly(self):
+        healer = JSONStreamHealer()
+        obj = '{"op":"add","id":"il-1","type":"ingredient-list","data":{"items":[{"name":"pasta","qty":"200g"}]}}'
+        events = healer.feed(obj)
+        content_events = [e for e in events if isinstance(e, ContentEvent)]
+        assert len(content_events) == 1
+        assert content_events[0].op["id"] == "il-1"
+
+
+# ---------------------------------------------------------------------------
+# CanvasOp schema unit tests
+# ---------------------------------------------------------------------------
+
+class TestCanvasOpSchema:
+    def test_add_requires_type(self):
+        with pytest.raises(Exception):
+            CanvasOp(op="add", id="x", data={"body": "hi"})
+
+    def test_add_requires_data(self):
+        with pytest.raises(Exception):
+            CanvasOp(op="add", id="x", type="text-card")
+
+    def test_add_rejects_unknown_type(self):
+        with pytest.raises(Exception):
+            CanvasOp(op="add", id="x", type="recipe-card", data={"title": "Pasta"})
+
+    def test_add_validates_required_data_keys(self):
+        with pytest.raises(Exception):
+            # step-view requires step_number, total_steps, recipe, instruction
+            CanvasOp(op="add", id="x", type="step-view", data={"instruction": "Boil water"})
+
+    def test_add_valid_step_view(self):
+        op = CanvasOp(
+            op="add", id="s1", type="step-view",
+            data={"step_number": 1, "total_steps": 6, "recipe": "Pasta", "instruction": "Boil water"},
+        )
+        assert op.type == "step-view"
+
+    def test_add_valid_recipe_grid_empty_data(self):
+        op = CanvasOp(op="add", id="rg", type="recipe-grid", data={})
+        assert op.type == "recipe-grid"
+
+    def test_move_requires_position(self):
+        with pytest.raises(Exception):
+            CanvasOp(op="move", id="x")
+
+    def test_move_rejects_invalid_position(self):
+        with pytest.raises(Exception):
+            CanvasOp(op="move", id="x", position="bottom-right")
+
+    def test_move_accepts_valid_position(self):
+        op = CanvasOp(op="move", id="x", position="corner-br")
+        assert op.position == "corner-br"
+
+    def test_remove_needs_only_id(self):
+        op = CanvasOp(op="remove", id="step-1")
+        assert op.type is None
+        assert op.data is None
+
+    def test_update_needs_only_id_and_data(self):
+        op = CanvasOp(op="update", id="step-1", data={"instruction": "Updated"})
+        assert op.op == "update"
+
+
+# ---------------------------------------------------------------------------
+# astream_events integration tests
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_astream_events_yields_content_events():
+    stream = (
+        '{"op":"add","id":"step-1","type":"step-view",'
+        '"data":{"step_number":1,"total_steps":6,"recipe":"Pasta","instruction":"Boil water"}}\n'
+        '{"op":"add","id":"pb-1","type":"progress-bar","data":{"current":1,"total":6}}\n'
+    )
+    llm = make_llm(stream)
+    events = [e async for e in astream_events("show step 1", "Pasta", {}, llm)]
+    content = [e for e in events if isinstance(e, ContentEvent)]
+    assert len(content) == 2
+    assert content[0].op["id"] == "step-1"
+    assert content[1].op["id"] == "pb-1"
+
+
+@pytest.mark.asyncio
+async def test_astream_events_yields_skeleton_before_content():
+    stream = (
+        '{"op":"add","id":"step-1","type":"step-view",'
+        '"data":{"step_number":1,"total_steps":3,"recipe":"Test","instruction":"Boil water"}}\n'
+    )
+    # Feed char by char so skeleton fires mid-stream
+    chars = list(stream)
+    llm = make_chunked_llm(chars)
+    events = [e async for e in astream_events("show step", "Test", {}, llm)]
+    skeleton_idx = next(i for i, e in enumerate(events) if isinstance(e, SkeletonEvent))
+    content_idx = next(i for i, e in enumerate(events) if isinstance(e, ContentEvent))
+    assert skeleton_idx < content_idx
+
+
+@pytest.mark.asyncio
+async def test_astream_events_drops_invalid_ops():
+    stream = (
+        '{"op":"add","id":"ok-1","type":"text-card","data":{"body":"Hello"}}\n'
+        '{"op":"add","id":"bad-1","type":"unknown-type","data":{"foo":"bar"}}\n'
+        '{"op":"add","id":"bad-2"}\n'  # missing type
+    )
+    llm = make_llm(stream)
+    events = [e async for e in astream_events("test", "", {}, llm)]
+    content = [e for e in events if isinstance(e, ContentEvent)]
+    ids = [e.op["id"] for e in content]
+    assert "ok-1" in ids
+    assert "bad-1" not in ids
+    assert "bad-2" not in ids
+
+
+@pytest.mark.asyncio
+async def test_astream_events_update_and_remove():
+    stream = (
+        '{"op":"update","id":"step-1","data":{"instruction":"Updated"}}\n'
+        '{"op":"remove","id":"timer-1"}\n'
+    )
+    llm = make_llm(stream)
+    events = [e async for e in astream_events("advance step", "", {}, llm)]
+    content = [e for e in events if isinstance(e, ContentEvent)]
+    assert content[0].op == {"op": "update", "id": "step-1", "data": {"instruction": "Updated"}}
+    assert content[1].op == {"op": "remove", "id": "timer-1"}
+
+
+# ---------------------------------------------------------------------------
+# build_canvas_render_graph (batch wrapper)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_graph_ainvoke_returns_ops():
+    stream = (
+        '{"op":"add","id":"step-1","type":"step-view",'
+        '"data":{"step_number":1,"total_steps":3,"recipe":"Test","instruction":"Boil water"}}\n'
+    )
+    graph = build_canvas_render_graph(make_llm(stream))
+    result = await graph.ainvoke({"intent": "show step 1", "canvas_state": {}, "context": "Test"})
     assert len(result["ops"]) == 1
     assert result["ops"][0]["op"] == "add"
     assert result["ops"][0]["id"] == "step-1"
-    assert result["errors"] == []
 
 
-async def test_graph_returns_multiple_ops():
-    llm_response = json.dumps([
-        {
-            "op": "add",
-            "id": "step-3",
-            "html": '<div zone="center" size="large" layer="base" class="card elevated"><p class="text-primary size-lg">Sear chicken</p></div>',
-        },
-        {
-            "op": "add",
-            "id": "timer-1",
-            "html": '<div zone="corner-br" size="small" layer="float" class="card compact glass" data-component="timer" data-duration="6m" data-autostart="true" data-label="Chicken"></div>',
-        },
-        {"op": "remove", "id": "step-2"},
-    ])
-    graph = build_canvas_render_graph(make_llm(llm_response), make_retriever([STEP_SNIPPET, TIMER_SNIPPET]))
-    result = await graph.ainvoke({"intent": "next step with timer", "canvas_state": {}, "context": "step 3"})
-
-    assert len(result["ops"]) == 3
-    ops_by_id = {op["id"]: op for op in result["ops"]}
-    assert ops_by_id["step-3"]["op"] == "add"
-    assert ops_by_id["timer-1"]["op"] == "add"
-    assert ops_by_id["step-2"]["op"] == "remove"
-
-
-async def test_graph_strips_markdown_fences():
-    llm_response = '```json\n[{"op": "remove", "id": "step-1"}]\n```'
-    graph = build_canvas_render_graph(make_llm(llm_response), make_retriever([]))
-    result = await graph.ainvoke({"intent": "remove step", "canvas_state": {}, "context": ""})
-
-    assert len(result["ops"]) == 1
-    assert result["ops"][0]["op"] == "remove"
-
-
-async def test_graph_drops_invalid_ops_and_records_errors():
-    llm_response = json.dumps([
-        {"op": "add", "id": "ok-1", "html": '<div zone="center" size="large" layer="base" class="card">ok</div>'},
-        {"op": "add", "id": "bad-1"},          # missing html
-        {"op": "move", "id": "bad-2"},          # missing zone
-        {"op": "focus", "id": "ok-2"},
-    ])
-    graph = build_canvas_render_graph(make_llm(llm_response), make_retriever([]))
-    result = await graph.ainvoke({"intent": "test", "canvas_state": {}, "context": ""})
-
-    valid_ids = [op["id"] for op in result["ops"]]
-    assert "ok-1" in valid_ids
-    assert "ok-2" in valid_ids
-    assert "bad-1" not in valid_ids
-    assert "bad-2" not in valid_ids
-    assert len(result["errors"]) == 2
-
-
-async def test_graph_handles_malformed_json():
-    graph = build_canvas_render_graph(make_llm("not json at all"), make_retriever([]))
-    result = await graph.ainvoke({"intent": "test", "canvas_state": {}, "context": ""})
-
-    assert result["ops"] == []
-    assert len(result["errors"]) == 1
-    assert "JSON parse failed" in result["errors"][0]
-
-
-async def test_graph_handles_non_array_json():
-    graph = build_canvas_render_graph(make_llm('{"op": "add"}'), make_retriever([]))
-    result = await graph.ainvoke({"intent": "test", "canvas_state": {}, "context": ""})
-
-    assert result["ops"] == []
-    assert "not a JSON array" in result["errors"][0]
-
-
-# ---------------------------------------------------------------------------
-# Sanitizer unit tests
-# ---------------------------------------------------------------------------
-
-def test_sanitizer_strips_script_tags():
-    html = '<div class="card"><script>alert(1)</script>content</div>'
-    result = sanitize_html(html)
-    assert "<script>" not in result
-    assert "content" in result
-
-
-def test_sanitizer_strips_disallowed_attributes():
-    html = '<div class="card" onclick="evil()" style="color:red">text</div>'
-    result = sanitize_html(html)
-    assert "onclick" not in result
-    assert "style=" not in result
-    assert 'class="card"' in result
-
-
-def test_sanitizer_allows_data_component_attributes():
-    html = '<div class="card" data-component="timer" data-duration="6m" data-autostart="true"></div>'
-    result = sanitize_html(html)
-    assert 'data-component="timer"' in result
-    assert 'data-duration="6m"' in result
-
-
-def test_sanitizer_preserves_zone_size_layer():
-    html = '<div zone="center" size="large" layer="base" class="card">content</div>'
-    result = sanitize_html(html)
-    assert 'zone="center"' in result
-    assert 'size="large"' in result
-    assert 'layer="base"' in result
-
-
-def test_sanitizer_strips_external_src():
-    html = '<img src="https://evil.com/track.png">'
-    result = sanitize_html(html)
-    assert "evil.com" not in result
-
-
-# ---------------------------------------------------------------------------
-# Schema unit tests
-# ---------------------------------------------------------------------------
-
-def test_canvas_op_add_requires_html():
-    with pytest.raises(Exception):
-        CanvasOp(op="add", id="x")
-
-
-def test_canvas_op_move_requires_zone():
-    with pytest.raises(Exception):
-        CanvasOp(op="move", id="x")
-
-
-def test_canvas_op_move_rejects_invalid_zone():
-    with pytest.raises(Exception):
-        CanvasOp(op="move", id="x", zone="floating-nowhere")
-
-
-def test_canvas_op_remove_needs_only_id():
-    op = CanvasOp(op="remove", id="step-1")
-    assert op.html is None
-    assert op.zone is None
-
-
-def test_canvas_op_focus_needs_only_id():
-    op = CanvasOp(op="focus", id="step-1")
-    assert op.html is None
+@pytest.mark.asyncio
+async def test_graph_ainvoke_with_canvas_state():
+    existing = {
+        "step-1": {"type": "step-view", "data": {"step_number": 1, "total_steps": 3, "recipe": "Test", "instruction": "Boil water"}},
+    }
+    stream = '{"op":"update","id":"step-1","data":{"step_number":2,"instruction":"Add pasta"}}\n'
+    graph = build_canvas_render_graph(make_llm(stream))
+    result = await graph.ainvoke({"intent": "next step", "canvas_state": existing, "context": ""})
+    assert result["ops"][0]["op"] == "update"

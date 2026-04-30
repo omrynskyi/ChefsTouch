@@ -1,156 +1,107 @@
 from __future__ import annotations
 
-import json
-import re
-from typing import Any, Dict, List, Sequence
+from typing import Any, AsyncGenerator, Dict, List, Optional, Union
 
-from langchain_core.documents import Document
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
-from langchain_core.tools import tool
-from langgraph.graph import END, StateGraph
-from pydantic import ValidationError
-from typing_extensions import TypedDict
+from langchain_core.messages import HumanMessage, SystemMessage
 
-from .prompts import AGENT_SYSTEM_PROMPT, format_classes
-from .sanitizer import sanitize_html
-from .schemas import CanvasOp, CanvasState
+from .healer import ContentEvent, JSONStreamHealer, SkeletonEvent
+from .prompts import AGENT_SYSTEM_PROMPT
+from .schemas import CanvasOp, VALID_TYPES
 
 
-class _RenderState(TypedDict):
-    intent: str
-    canvas_state: Dict[str, Any]
-    context: str
-    messages: List[Any]
-    retrieved_classes: List[Document]
-    raw_output: str
-    ops: List[Dict[str, Any]]
-    errors: List[str]
+def _canvas_summary(canvas_state: Dict[str, Any]) -> str:
+    if not canvas_state:
+        return "CURRENT CANVAS: empty"
+    lines = ["CURRENT CANVAS:"]
+    for comp_id, comp in canvas_state.items():
+        comp_type = comp.get("type", "?")
+        data = comp.get("data") or {}
+        if comp_type == "step-view":
+            desc = (
+                f'step {data.get("step_number","?")}/{data.get("total_steps","?")} '
+                f'"{data.get("instruction","")}"'
+            )
+        elif comp_type == "progress-bar":
+            desc = f'{data.get("current","?")}/{data.get("total","?")}'
+        elif comp_type == "timer":
+            desc = (
+                f'{data.get("duration_seconds","?")}s {data.get("label","?")} '
+                f'[auto_start={data.get("auto_start","?")}]'
+            )
+        else:
+            desc = ", ".join(f"{k}={v}" for k, v in list(data.items())[:2])
+        lines.append(f"- {comp_id} ({comp_type}): {desc}")
+    return "\n".join(lines)
 
 
-def _extract_json(text: str) -> str:
-    fenced = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
-    if fenced:
-        return fenced.group(1).strip()
-    start = text.find("[")
-    end = text.rfind("]")
-    if start != -1 and end != -1:
-        return text[start : end + 1]
-    return text.strip()
+def _validate_op(raw: dict) -> Optional[dict]:
+    try:
+        op = CanvasOp.model_validate(raw)
+        return op.model_dump(exclude_none=True)
+    except Exception:
+        return None
 
 
-def build_canvas_render_graph(llm: BaseChatModel, retriever: Any) -> Any:
+async def astream_events(
+    intent: str,
+    context: str,
+    canvas_state: Dict[str, Any],
+    llm: BaseChatModel,
+) -> AsyncGenerator[Union[SkeletonEvent, ContentEvent], None]:
     """
-    Returns a compiled LangGraph. The LLM calls search_css_classes as a tool
-    to retrieve the CSS it needs, then generates canvas ops as a JSON array.
+    Stream SkeletonEvent and ContentEvent as the LLM generates JSONL ops.
 
-    Usage:
-        graph = build_canvas_render_graph(llm, retriever)
-        result = await graph.ainvoke({
-            "intent": "show step 3 with a 6 minute timer",
-            "canvas_state": {},
-            "context": "Pasta Carbonara, step 3 of 6",
-        })
-        ops = result["ops"]
+    SkeletonEvents fire as soon as "type" and "id" are visible in the partial
+    buffer, before the full op object closes.  ContentEvents carry a validated
+    CanvasOp dict and fire when the object closes.  Invalid ops are dropped
+    silently.
     """
+    system = AGENT_SYSTEM_PROMPT.format(canvas_state=_canvas_summary(canvas_state))
+    messages = [SystemMessage(content=system), HumanMessage(content=f"Intent: {intent}\nContext: {context}")]
+    healer = JSONStreamHealer()
 
-    @tool
-    async def search_css_classes(query: str) -> str:
-        """
-        Search for CSS classes and components by describing what you need.
-        Call this before generating HTML to find the right class names.
-        Example queries: "floating timer overlay", "list with text items", "fade-in animation"
-        """
-        docs: Sequence[Document] = await retriever.ainvoke(query)
-        if not docs:
-            return "No matching classes found."
-        return format_classes(list(docs))
+    async for chunk in llm.astream(messages):
+        text = chunk.content if isinstance(chunk.content, str) else ""
+        for event in healer.feed(text):
+            if isinstance(event, SkeletonEvent):
+                if event.component_type in VALID_TYPES:
+                    yield event
+            else:
+                validated = _validate_op(event.op)
+                if validated is not None:
+                    yield ContentEvent(op=validated)
 
-    llm_with_tools = llm.bind_tools([search_css_classes])
+    for event in healer.finalize():
+        if isinstance(event, SkeletonEvent):
+            if event.component_type in VALID_TYPES:
+                yield event
+        else:
+            validated = _validate_op(event.op)
+            if validated is not None:
+                yield ContentEvent(op=validated)
 
-    def canvas_summary(canvas_state: Dict[str, Any]) -> str:
-        if not canvas_state:
-            return "empty"
-        try:
-            return CanvasState.model_validate({"components": canvas_state}).summary()
-        except Exception:
-            return ", ".join(f"{k}(zone={v.get('zone','?')})" for k, v in canvas_state.items())
 
-    async def setup(state: _RenderState) -> _RenderState:
-        system = AGENT_SYSTEM_PROMPT.format(canvas_state=canvas_summary(state["canvas_state"]))
-        user = f"Intent: {state['intent']}\nContext: {state['context']}"
-        return {
-            **state,
-            "messages": [SystemMessage(content=system), HumanMessage(content=user)],
-            "retrieved_classes": [],
-        }
+class _RenderGraph:
+    """Non-streaming wrapper around astream_events for batch invocation."""
 
-    async def call_llm(state: _RenderState) -> _RenderState:
-        response = await llm_with_tools.ainvoke(state["messages"])
-        return {**state, "messages": state["messages"] + [response]}
+    def __init__(self, llm: BaseChatModel) -> None:
+        self._llm = llm
 
-    async def run_tools(state: _RenderState) -> _RenderState:
-        last: AIMessage = state["messages"][-1]
-        new_messages = []
-        new_docs: List[Document] = []
+    async def ainvoke(self, state: dict) -> dict:
+        intent = state.get("intent", "")
+        context = state.get("context", "")
+        canvas_state = state.get("canvas_state", {})
+        ops: List[dict] = []
+        async for event in astream_events(intent, context, canvas_state, self._llm):
+            if isinstance(event, ContentEvent):
+                ops.append(event.op)
+        return {"ops": ops, "errors": []}
 
-        for tc in last.tool_calls:
-            if tc["name"] == "search_css_classes":
-                query = tc["args"].get("query", "")
-                docs: Sequence[Document] = await retriever.ainvoke(query)
-                new_docs.extend(docs)
-                result_text = format_classes(list(docs)) if docs else "No matching classes found."
-                new_messages.append(
-                    ToolMessage(content=result_text, tool_call_id=tc["id"])
-                )
 
-        return {
-            **state,
-            "messages": state["messages"] + new_messages,
-            "retrieved_classes": state["retrieved_classes"] + new_docs,
-        }
-
-    def should_continue(state: _RenderState) -> str:
-        last = state["messages"][-1]
-        if isinstance(last, AIMessage) and getattr(last, "tool_calls", None):
-            return "tools"
-        return "validate"
-
-    async def validate_ops(state: _RenderState) -> _RenderState:
-        last: AIMessage = state["messages"][-1]
-        raw_text = last.content if isinstance(last.content, str) else ""
-        errors: List[str] = []
-        valid_ops: List[Dict[str, Any]] = []
-
-        try:
-            raw = json.loads(_extract_json(raw_text))
-        except json.JSONDecodeError as e:
-            return {**state, "raw_output": raw_text, "ops": [], "errors": [f"JSON parse failed: {e}"]}
-
-        if not isinstance(raw, list):
-            return {**state, "raw_output": raw_text, "ops": [], "errors": ["LLM output was not a JSON array"]}
-
-        for item in raw:
-            try:
-                op = CanvasOp.model_validate(item)
-                if op.html:
-                    op = op.model_copy(update={"html": sanitize_html(op.html)})
-                valid_ops.append(op.model_dump(exclude_none=True))
-            except (ValidationError, Exception) as e:
-                errors.append(f"dropped op {item.get('id', '?')}: {e}")
-
-        return {**state, "raw_output": raw_text, "ops": valid_ops, "errors": errors}
-
-    graph: StateGraph = StateGraph(_RenderState)
-    graph.add_node("setup", setup)
-    graph.add_node("llm", call_llm)
-    graph.add_node("tools", run_tools)
-    graph.add_node("validate", validate_ops)
-
-    graph.set_entry_point("setup")
-    graph.add_edge("setup", "llm")
-    graph.add_conditional_edges("llm", should_continue, {"tools": "tools", "validate": "validate"})
-    graph.add_edge("tools", "llm")
-    graph.add_edge("validate", END)
-
-    return graph.compile()
+def build_canvas_render_graph(llm: BaseChatModel, retriever: Any = None) -> _RenderGraph:
+    """
+    Returns a graph-like object with ainvoke(state) -> {ops, errors}.
+    The retriever arg is accepted but unused — CSS vector search is gone.
+    """
+    return _RenderGraph(llm)

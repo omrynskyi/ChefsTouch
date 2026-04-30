@@ -16,8 +16,8 @@ function stateWith(...entries: Parameters<CanvasState["set"]>[]): CanvasState {
 
 const recipeComp = {
   id: "r1",
-  type: "recipe-card" as const,
-  data: { title: "Pasta", description: "Good", duration_minutes: 20, servings: 2, tags: [] },
+  type: "text-card" as const,
+  data: { body: "Pasta" },
   position: "center" as const,
   focused: false,
 };
@@ -25,15 +25,15 @@ const recipeComp = {
 const stepComp = {
   id: "s1",
   type: "step-view" as const,
-  data: { step_number: 1, total_steps: 3, instruction: "Boil water", tip: null },
+  data: { step_number: 1, total_steps: 3, recipe: "Test", instruction: "Boil water", tip: null },
   focused: false,
 };
 
 // ─── validateOperation ───────────────────────────────────────────────────────
 
 describe("validateOperation", () => {
-  it("accepts all five valid op types", () => {
-    for (const op of ["add", "update", "remove", "focus", "move"]) {
+  it("accepts all valid op types", () => {
+    for (const op of ["add", "update", "remove", "focus", "move", "skeleton"]) {
       expect(validateOperation({ op, id: "x" })).toBe(true);
     }
   });
@@ -53,12 +53,12 @@ describe("add", () => {
     const next = canvasReducer(emptyState(), {
       op: "add",
       id: "r1",
-      type: "recipe-card",
+      type: "text-card",
       data: recipeComp.data,
       position: "center",
     });
     expect(next.size).toBe(1);
-    expect(next.get("r1")).toMatchObject({ id: "r1", type: "recipe-card", position: "center" });
+    expect(next.get("r1")).toMatchObject({ id: "r1", type: "text-card", position: "center" });
   });
 
   it("preserves existing entries when adding", () => {
@@ -67,18 +67,38 @@ describe("add", () => {
     expect(next.size).toBe(2);
   });
 
-  it("is a no-op and warns on duplicate id", () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  it("upserts (shallow-merges data) on duplicate id", () => {
     const state = stateWith(["r1", recipeComp]);
-    const next = canvasReducer(state, { op: "add", id: "r1", type: "recipe-card", data: recipeComp.data });
-    expect(next).toBe(state); // same reference
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining("duplicate id"));
-    warn.mockRestore();
+    const next = canvasReducer(state, { op: "add", id: "r1", type: "text-card", data: { body: "Updated" } });
+    expect(next.get("r1")?.data).toEqual({ body: "Updated" });
+    expect(next.get("r1")?.skeleton).toBe(false);
+  });
+
+  it("replaces skeleton entry when add arrives for same id", () => {
+    const skelState = canvasReducer(emptyState(), { op: "skeleton", id: "r1", type: "text-card" });
+    const next = canvasReducer(skelState, { op: "add", id: "r1", type: "text-card", data: { body: "Hello" } });
+    expect(next.get("r1")?.skeleton).toBe(false);
+    expect((next.get("r1")?.data as { body: string }).body).toBe("Hello");
   });
 
   it("sets focused to false on new component", () => {
-    const next = canvasReducer(emptyState(), { op: "add", id: "r1", type: "recipe-card", data: recipeComp.data });
+    const next = canvasReducer(emptyState(), { op: "add", id: "r1", type: "text-card", data: recipeComp.data });
     expect(next.get("r1")?.focused).toBe(false);
+  });
+});
+
+// ─── skeleton ────────────────────────────────────────────────────────────────
+
+describe("skeleton", () => {
+  it("adds a skeleton placeholder with data null", () => {
+    const next = canvasReducer(emptyState(), { op: "skeleton", id: "s1", type: "step-view" });
+    expect(next.get("s1")).toMatchObject({ id: "s1", type: "step-view", data: null, skeleton: true });
+  });
+
+  it("is a no-op if id already exists", () => {
+    const state = stateWith(["s1", stepComp]);
+    const next = canvasReducer(state, { op: "skeleton", id: "s1", type: "step-view" });
+    expect(next).toBe(state);
   });
 });
 
@@ -87,15 +107,14 @@ describe("add", () => {
 describe("update", () => {
   it("merges data fields onto existing component", () => {
     const state = stateWith(["r1", recipeComp]);
-    const next = canvasReducer(state, { op: "update", id: "r1", data: { title: "Updated" } });
-    expect((next.get("r1")?.data as { title: string }).title).toBe("Updated");
-    expect((next.get("r1")?.data as { servings: number }).servings).toBe(2); // unchanged
+    const next = canvasReducer(state, { op: "update", id: "r1", data: { body: "Updated" } });
+    expect((next.get("r1")?.data as { body: string }).body).toBe("Updated");
   });
 
   it("does not mutate original state", () => {
     const state = stateWith(["r1", recipeComp]);
-    canvasReducer(state, { op: "update", id: "r1", data: { title: "X" } });
-    expect((state.get("r1")?.data as { title: string }).title).toBe("Pasta");
+    canvasReducer(state, { op: "update", id: "r1", data: { body: "X" } });
+    expect((state.get("r1")?.data as { body: string }).body).toBe("Pasta");
   });
 
   it("is a no-op for unknown id", () => {
@@ -152,8 +171,8 @@ describe("focus", () => {
 describe("move", () => {
   it("updates the position of an existing component", () => {
     const state = stateWith(["r1", recipeComp]);
-    const next = canvasReducer(state, { op: "move", id: "r1", position: "bottom-right" });
-    expect(next.get("r1")?.position).toBe("bottom-right");
+    const next = canvasReducer(state, { op: "move", id: "r1", position: "corner-br" });
+    expect(next.get("r1")?.position).toBe("corner-br");
   });
 
   it("is a no-op for unknown id", () => {

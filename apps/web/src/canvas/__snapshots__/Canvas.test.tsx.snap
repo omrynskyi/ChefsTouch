@@ -1,0 +1,764 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Canvas > renders alert in top zone 1`] = `
+<div>
+  <div
+    class="canvas-grid"
+  >
+    <div
+      zone="corner-tl"
+    />
+    <div
+      zone="top"
+    >
+      <div
+        style="width: 100%;"
+      >
+        <div
+          class="alert alert-urgent"
+          role="alert"
+        >
+          <span
+            class="alert-text"
+          >
+            Pan is too hot!
+          </span>
+          <button
+            aria-label="Dismiss"
+            class="alert-dismiss"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+    </div>
+    <div
+      zone="corner-tr"
+    >
+      <div
+        class="status-dot"
+        data-status="connected"
+        title="connected"
+      />
+    </div>
+    <div
+      zone="left"
+    />
+    <div
+      zone="center"
+    />
+    <div
+      zone="right"
+    />
+    <div
+      zone="corner-bl"
+    />
+    <div
+      zone="bottom"
+    />
+    <div
+      zone="corner-br"
+    />
+  </div>
+</div>
+`;
+
+exports[`Canvas > renders camera in right zone 1`] = `
+<div>
+  <div
+    class="canvas-grid"
+  >
+    <div
+      zone="corner-tl"
+    />
+    <div
+      zone="top"
+    />
+    <div
+      zone="corner-tr"
+    >
+      <div
+        class="status-dot"
+        data-status="connected"
+        title="connected"
+      />
+    </div>
+    <div
+      zone="left"
+    />
+    <div
+      zone="center"
+    />
+    <div
+      zone="right"
+    >
+      <div
+        style="width: 100%;"
+      >
+        <div
+          class="card comp-full"
+          style="display: flex; flex-direction: column; gap: var(--space-md);"
+        >
+          <div
+            style="background: var(--surface-muted); border-radius: var(--radius-sm); aspect-ratio: 4/3; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 13px;"
+          >
+            Camera feed
+          </div>
+          <p
+            class="text-secondary size-sm"
+          >
+            Is the chicken cooked through?
+          </p>
+        </div>
+      </div>
+    </div>
+    <div
+      zone="corner-bl"
+    />
+    <div
+      zone="bottom"
+    />
+    <div
+      zone="corner-br"
+    />
+  </div>
+</div>
+`;
+
+exports[`Canvas > renders idle mic icon when canvas is empty 1`] = `
+<div>
+  <div
+    class="canvas-grid"
+  >
+    <div
+      zone="corner-tl"
+    />
+    <div
+      zone="top"
+    />
+    <div
+      zone="corner-tr"
+    >
+      <div
+        class="status-dot"
+        data-status="connected"
+        title="connected"
+      />
+    </div>
+    <div
+      zone="left"
+    />
+    <div
+      zone="center"
+    >
+      <span
+        aria-label="Listening"
+        role="img"
+        style="font-size: 3rem;"
+      >
+        🎙️
+      </span>
+    </div>
+    <div
+      zone="right"
+    />
+    <div
+      zone="corner-bl"
+    />
+    <div
+      zone="bottom"
+    />
+    <div
+      zone="corner-br"
+    />
+  </div>
+</div>
+`;
+
+exports[`Canvas > renders ingredient-list in left zone 1`] = `
+<div>
+  <div
+    class="canvas-grid"
+  >
+    <div
+      zone="corner-tl"
+    />
+    <div
+      zone="top"
+    />
+    <div
+      zone="corner-tr"
+    >
+      <div
+        class="status-dot"
+        data-status="connected"
+        title="connected"
+      />
+    </div>
+    <div
+      zone="left"
+    >
+      <div
+        style="width: 100%;"
+      >
+        <div
+          class="card comp-full"
+        >
+          <ul
+            class="ingredient-list"
+            style="list-style: none; padding: 0px; margin: 0px;"
+          >
+            <li
+              class="ingredient-row"
+            >
+              <span
+                class="ingredient-name"
+              >
+                Pasta
+              </span>
+              <span
+                class="ingredient-qty"
+              >
+                200g
+              </span>
+            </li>
+            <li
+              class="ingredient-row"
+            >
+              <span
+                class="ingredient-name"
+              >
+                Salt
+              </span>
+              <span
+                class="ingredient-qty"
+              >
+                1 tsp
+              </span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div
+      zone="center"
+    />
+    <div
+      zone="right"
+    />
+    <div
+      zone="corner-bl"
+    />
+    <div
+      zone="bottom"
+    />
+    <div
+      zone="corner-br"
+    />
+  </div>
+</div>
+`;
+
+exports[`Canvas > renders progress-bar in top zone 1`] = `
+<div>
+  <div
+    class="canvas-grid"
+  >
+    <div
+      zone="corner-tl"
+    />
+    <div
+      zone="top"
+    >
+      <div
+        style="width: 100%;"
+      >
+        <div
+          class="progress-bar card"
+        >
+          <span
+            class="label-muted"
+          >
+            Step 
+            2
+             of 
+            6
+          </span>
+          <div
+            aria-valuemax="6"
+            aria-valuemin="0"
+            aria-valuenow="2"
+            class="progress-track"
+            role="progressbar"
+          >
+            <div
+              class="progress-fill"
+              style="width: 33%;"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+    <div
+      zone="corner-tr"
+    >
+      <div
+        class="status-dot"
+        data-status="connected"
+        title="connected"
+      />
+    </div>
+    <div
+      zone="left"
+    />
+    <div
+      zone="center"
+    />
+    <div
+      zone="right"
+    />
+    <div
+      zone="corner-bl"
+    />
+    <div
+      zone="bottom"
+    />
+    <div
+      zone="corner-br"
+    />
+  </div>
+</div>
+`;
+
+exports[`Canvas > renders recipe-grid with recipe-option children in center zone 1`] = `
+<div>
+  <div
+    class="canvas-grid"
+  >
+    <div
+      zone="corner-tl"
+    />
+    <div
+      zone="top"
+    />
+    <div
+      zone="corner-tr"
+    >
+      <div
+        class="status-dot"
+        data-status="connected"
+        title="connected"
+      />
+    </div>
+    <div
+      zone="left"
+    />
+    <div
+      zone="center"
+    >
+      <div
+        style="width: 100%;"
+      >
+        <div
+          class="recipe-grid comp-wide"
+        >
+          <button
+            aria-label="Carbonara"
+            class="recipe-option"
+          >
+            <span
+              class="recipe-title"
+            >
+              Carbonara
+            </span>
+          </button>
+          <button
+            aria-label="Aglio e Olio"
+            class="recipe-option"
+          >
+            <span
+              class="recipe-title"
+            >
+              Aglio e Olio
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div
+      zone="right"
+    />
+    <div
+      zone="corner-bl"
+    />
+    <div
+      zone="bottom"
+    />
+    <div
+      zone="corner-br"
+    />
+  </div>
+</div>
+`;
+
+exports[`Canvas > renders skeleton placeholder for skeleton components 1`] = `
+<div>
+  <div
+    class="canvas-grid"
+  >
+    <div
+      zone="corner-tl"
+    />
+    <div
+      zone="top"
+    />
+    <div
+      zone="corner-tr"
+    >
+      <div
+        class="status-dot"
+        data-status="connected"
+        title="connected"
+      />
+    </div>
+    <div
+      zone="left"
+    />
+    <div
+      zone="center"
+    >
+      <div
+        style="width: 100%;"
+      >
+        <div
+          aria-hidden="true"
+          class="skeleton-shimmer"
+          style="width: 100%; height: var(--sk-h-step-view);"
+        />
+      </div>
+    </div>
+    <div
+      zone="right"
+    />
+    <div
+      zone="corner-bl"
+    />
+    <div
+      zone="bottom"
+    />
+    <div
+      zone="corner-br"
+    />
+  </div>
+</div>
+`;
+
+exports[`Canvas > renders step-view in center zone 1`] = `
+<div>
+  <div
+    class="canvas-grid"
+  >
+    <div
+      zone="corner-tl"
+    />
+    <div
+      zone="top"
+    />
+    <div
+      zone="corner-tr"
+    >
+      <div
+        class="status-dot"
+        data-status="connected"
+        title="connected"
+      />
+    </div>
+    <div
+      zone="left"
+    />
+    <div
+      zone="center"
+    >
+      <div
+        style="width: 100%;"
+      >
+        <div
+          class="card"
+          style="width: 100%;"
+        >
+          <span
+            class="label-muted"
+          >
+            Pasta
+             · Step 
+            1
+             of 
+            6
+          </span>
+          <p
+            class="text-primary size-lg"
+          >
+            Boil water
+          </p>
+          <p
+            class="text-secondary size-sm"
+            style="margin-top: var(--space-sm);"
+          >
+            Use lots of salt
+          </p>
+          <div
+            class="tag-row"
+          >
+            <span
+              class="tag"
+            >
+              ~10 min
+            </span>
+          </div>
+          <button
+            class="btn-primary"
+            style="margin-top: var(--space-md);"
+          >
+            Next step →
+          </button>
+        </div>
+      </div>
+    </div>
+    <div
+      zone="right"
+    />
+    <div
+      zone="corner-bl"
+    />
+    <div
+      zone="bottom"
+    />
+    <div
+      zone="corner-br"
+    />
+  </div>
+</div>
+`;
+
+exports[`Canvas > renders suggestion in bottom zone 1`] = `
+<div>
+  <div
+    class="canvas-grid"
+  >
+    <div
+      zone="corner-tl"
+    />
+    <div
+      zone="top"
+    />
+    <div
+      zone="corner-tr"
+    >
+      <div
+        class="status-dot"
+        data-status="connected"
+        title="connected"
+      />
+    </div>
+    <div
+      zone="left"
+    />
+    <div
+      zone="center"
+    />
+    <div
+      zone="right"
+    />
+    <div
+      zone="corner-bl"
+    />
+    <div
+      zone="bottom"
+    >
+      <div
+        style="width: 100%;"
+      >
+        <div
+          class="card glass suggestion-card"
+        >
+          <div
+            class="suggestion-body"
+          >
+            <span
+              class="label-muted"
+            >
+              While you wait
+            </span>
+            <p
+              class="text-secondary size-sm suggestion-text"
+            >
+              Chop the garlic.
+            </p>
+          </div>
+          <button
+            class="suggestion-action"
+          >
+            Got it
+          </button>
+        </div>
+      </div>
+    </div>
+    <div
+      zone="corner-br"
+    />
+  </div>
+</div>
+`;
+
+exports[`Canvas > renders text-card in center zone with markdown 1`] = `
+<div>
+  <div
+    class="canvas-grid"
+  >
+    <div
+      zone="corner-tl"
+    />
+    <div
+      zone="top"
+    />
+    <div
+      zone="corner-tr"
+    >
+      <div
+        class="status-dot"
+        data-status="connected"
+        title="connected"
+      />
+    </div>
+    <div
+      zone="left"
+    />
+    <div
+      zone="center"
+    >
+      <div
+        style="width: 100%;"
+      >
+        <div
+          class="card comp-medium"
+        >
+          <p
+            class="text-primary size-md"
+          >
+            Use 
+            <strong>
+              fresh
+            </strong>
+             pasta for 
+            <em>
+              best
+            </em>
+             results.
+          </p>
+        </div>
+      </div>
+    </div>
+    <div
+      zone="right"
+    />
+    <div
+      zone="corner-bl"
+    />
+    <div
+      zone="bottom"
+    />
+    <div
+      zone="corner-br"
+    />
+  </div>
+</div>
+`;
+
+exports[`Canvas > renders timer in corner-br zone 1`] = `
+<div>
+  <div
+    class="canvas-grid"
+  >
+    <div
+      zone="corner-tl"
+    />
+    <div
+      zone="top"
+    />
+    <div
+      zone="corner-tr"
+    >
+      <div
+        class="status-dot"
+        data-status="connected"
+        title="connected"
+      />
+    </div>
+    <div
+      zone="left"
+    />
+    <div
+      zone="center"
+    />
+    <div
+      zone="right"
+    />
+    <div
+      zone="corner-bl"
+    />
+    <div
+      zone="bottom"
+    />
+    <div
+      zone="corner-br"
+    >
+      <div
+        style="width: auto;"
+      >
+        <div
+          class="card timer-ring-card"
+        >
+          <div
+            class="timer-ring-wrap"
+          >
+            <svg
+              aria-hidden="true"
+              class="timer-ring-svg"
+              viewBox="0 0 104 104"
+            >
+              <circle
+                class="timer-ring-track"
+                cx="52"
+                cy="52"
+                r="42"
+              />
+              <circle
+                class="timer-ring-progress"
+                cx="52"
+                cy="52"
+                r="42"
+                stroke-dasharray="263.89378290154264"
+                stroke-dashoffset="0"
+              />
+            </svg>
+            <div
+              class="timer-ring-inner"
+            >
+              <span
+                class="font-timer"
+              >
+                5:00
+              </span>
+              <span
+                class="timer-label"
+              >
+                Boiling
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+`;
