@@ -6,14 +6,14 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from render_agent import (
+from packages.agents.render_agent import (
     ContentEvent,
     JSONStreamHealer,
     SkeletonEvent,
     astream_events,
     build_canvas_render_graph,
 )
-from render_agent.schemas import CanvasOp
+from packages.agents.render_agent.render_agent.schemas import CanvasOp
 
 
 # ---------------------------------------------------------------------------

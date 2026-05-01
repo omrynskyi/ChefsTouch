@@ -1,31 +1,20 @@
 from __future__ import annotations
 
 import logging
-import os
-import sys
 from typing import Any, Awaitable, Callable, Dict, List, Optional, TypedDict
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langsmith import traceable
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../packages/render-agent"))
+from packages.agents.image_inference_agent import analyze_frames
+from packages.agents.main_assistant.prompts import SYSTEM_PROMPT
+from packages.agents.recipe_agent import find_recipes
+from packages.agents.render_agent import build_canvas_render_graph
 
 logger = logging.getLogger(__name__)
 
 StatusCallback = Optional[Callable[[str], Awaitable[None]]]
-
-SYSTEM_PROMPT = """\
-You're Pip, a sharp and playful cooking sidekick. Keep every reply to two sentences max — you're talking, not typing. Be direct and a bit cheeky.
-
-You have three tools:
-- render_canvas: Call this when the screen needs updating (showing steps, recipes, timers, etc.)
-- find_recipes: Call this when the user wants to find or start a recipe.
-- analyze_image: Call this when the user sends camera frames to check their cooking.
-
-Always call render_canvas when the screen should change. Always keep tts_text short and conversational.\
-If you need clarification from the user, render it on-screen. Use a text-card for short questions, and use a text-card with an input field when you want the user to type an answer.\
-"""
 
 _TOOL_SCHEMAS = [
     {
@@ -177,17 +166,12 @@ class MainAssistantGraph:
         if name == "render_canvas":
             return await self._run_render_agent(args.get("intent", ""), state)
         if name == "find_recipes":
-            return {"recipes": [], "note": "Recipe search not yet implemented"}
+            return await find_recipes(args.get("query", ""), {"context": state["context"]})
         if name == "analyze_image":
-            return {
-                "observation": "No frames available",
-                "assessment": "ok",
-                "suggested_action": None,
-            }
+            return await analyze_frames([], args.get("context", state["context"]), self._llm)
         return {"error": f"Unknown tool: {name}"}
 
     async def _run_render_agent(self, intent: str, state: AgentState) -> dict:
-        from render_agent import build_canvas_render_graph
         graph = build_canvas_render_graph(self._llm)  # type: ignore[arg-type]
         result = await graph.ainvoke({
             "intent": intent,
@@ -197,12 +181,12 @@ class MainAssistantGraph:
         return result
 
 
-def build_main_agent_graph(llm: BaseChatModel, on_status: StatusCallback = None) -> MainAssistantGraph:
+def build_main_assistant(llm: BaseChatModel, on_status: StatusCallback = None) -> MainAssistantGraph:
     return MainAssistantGraph(llm, on_status=on_status)
 
 
 @traceable(name="main-agent", project_name="main-agent")
-async def run_main_agent(
+async def run_main_assistant(
     intent: str,
     context: str,
     canvas_state: Dict[str, Any],
@@ -210,7 +194,7 @@ async def run_main_agent(
     on_status: StatusCallback = None,
 ) -> Dict[str, Any]:
     """Run the Main Assistant and return {"tts_text": str, "canvas_ops": list}."""
-    graph = build_main_agent_graph(llm, on_status=on_status)
+    graph = build_main_assistant(llm, on_status=on_status)
     initial_state: AgentState = {
         "messages": [HumanMessage(content=intent)],
         "canvas_ops": [],

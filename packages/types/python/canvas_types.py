@@ -1,37 +1,68 @@
 from __future__ import annotations
 
-from typing import Literal, Union
+from typing import Dict, List, Literal, Optional, Union
+
 from pydantic import BaseModel
 
 
-# ─── Position tokens ──────────────────────────────────────────────────────────
-
 PositionToken = Literal[
-    "top", "bottom", "left", "right", "center",
-    "bottom-right", "bottom-left", "top-right", "top-left",
+    "center",
+    "top",
+    "bottom",
+    "left",
+    "right",
+    "corner-tl",
+    "corner-tr",
+    "corner-bl",
+    "corner-br",
 ]
-
-# ─── Component data schemas ───────────────────────────────────────────────────
-
-class RecipeCardData(BaseModel):
-    title: str
-    description: str
-    duration_minutes: int
-    servings: int
-    tags: list[str]
 
 
 class StepViewData(BaseModel):
     step_number: int
     total_steps: int
+    recipe: str
     instruction: str
-    tip: str | None = None
+    tip: Optional[str] = None
+    tags: Optional[List[str]] = None
+    action: Optional[str] = None
+
+
+class ProgressBarData(BaseModel):
+    current: int
+    total: int
 
 
 class TimerData(BaseModel):
     duration_seconds: int
     label: str
     auto_start: bool
+
+
+class AlertData(BaseModel):
+    text: str
+    urgent: Optional[bool] = None
+
+
+class RecipeGridData(BaseModel):
+    pass
+
+
+class RecipeOptionData(BaseModel):
+    title: str
+    description: Optional[str] = None
+    duration: Optional[str] = None
+    tags: Optional[List[str]] = None
+    action: str
+
+
+class IngredientItem(BaseModel):
+    name: str
+    qty: str
+
+
+class IngredientListData(BaseModel):
+    items: List[IngredientItem]
 
 
 class CameraData(BaseModel):
@@ -41,48 +72,67 @@ class CameraData(BaseModel):
 class SuggestionData(BaseModel):
     heading: str
     body: str
-    action_label: str | None = None
+    action_label: Optional[str] = None
 
 
 class TextCardData(BaseModel):
     body: str
-    input_placeholder: str | None = None
-    submit_label: str | None = None
-    input_action_prefix: str | None = None
+    input_placeholder: Optional[str] = None
+    submit_label: Optional[str] = None
+    input_action_prefix: Optional[str] = None
+
+
+ComponentType = Literal[
+    "step-view",
+    "progress-bar",
+    "timer",
+    "alert",
+    "recipe-grid",
+    "recipe-option",
+    "ingredient-list",
+    "camera",
+    "suggestion",
+    "text-card",
+]
 
 
 ComponentData = Union[
-    RecipeCardData, StepViewData, TimerData,
-    CameraData, SuggestionData, TextCardData,
+    StepViewData,
+    ProgressBarData,
+    TimerData,
+    AlertData,
+    RecipeGridData,
+    RecipeOptionData,
+    IngredientListData,
+    CameraData,
+    SuggestionData,
+    TextCardData,
 ]
 
-ComponentType = Literal[
-    "recipe-card", "step-view", "timer", "camera", "suggestion", "text-card"
-]
-
-# ─── Canvas component ─────────────────────────────────────────────────────────
 
 class CanvasComponent(BaseModel):
     id: str
     type: ComponentType
-    data: ComponentData
-    position: PositionToken | None = None
+    data: Optional[ComponentData] = None
+    position: Optional[PositionToken] = None
     focused: bool = False
+    skeleton: bool = False
+    parent: Optional[str] = None
 
-# ─── Canvas operations ────────────────────────────────────────────────────────
 
 class AddOperation(BaseModel):
     op: Literal["add"] = "add"
     id: str
     type: ComponentType
     data: ComponentData
-    position: PositionToken | None = None
+    position: Optional[PositionToken] = None
+    parent: Optional[str] = None
 
 
 class UpdateOperation(BaseModel):
     op: Literal["update"] = "update"
     id: str
-    data: dict  # Partial component data — validated by the dispatcher
+    data: Dict[str, object]
 
 
 class RemoveOperation(BaseModel):
@@ -101,15 +151,53 @@ class MoveOperation(BaseModel):
     position: PositionToken
 
 
+class SkeletonOperation(BaseModel):
+    op: Literal["skeleton"] = "skeleton"
+    id: str
+    type: ComponentType
+
+
+class StageOperation(BaseModel):
+    op: Literal["stage"] = "stage"
+    id: str
+    type: ComponentType
+    data: ComponentData
+    position: Optional[PositionToken] = None
+    parent: Optional[str] = None
+
+
+class CommitOperation(BaseModel):
+    op: Literal["commit"] = "commit"
+    id: str
+
+
+class SwapOperation(BaseModel):
+    op: Literal["swap"] = "swap"
+    id: str
+    out_id: str
+
+
+class ClearStagedOperation(BaseModel):
+    op: Literal["clear_staged"] = "clear_staged"
+
+
 CanvasOperation = Union[
-    AddOperation, UpdateOperation, RemoveOperation, FocusOperation, MoveOperation
+    AddOperation,
+    UpdateOperation,
+    RemoveOperation,
+    FocusOperation,
+    MoveOperation,
+    SkeletonOperation,
+    StageOperation,
+    CommitOperation,
+    SwapOperation,
+    ClearStagedOperation,
 ]
 
-# ─── WebSocket message types ──────────────────────────────────────────────────
 
 class InitMessage(BaseModel):
     type: Literal["init"] = "init"
-    session_id: str | None = None
+    session_id: Optional[str] = None
 
 
 class SessionReadyMessage(BaseModel):
@@ -119,7 +207,7 @@ class SessionReadyMessage(BaseModel):
 
 class AudioChunkMessage(BaseModel):
     type: Literal["audio_chunk"] = "audio_chunk"
-    data: str  # base64
+    data: str
 
 
 class TranscriptMessage(BaseModel):
@@ -129,7 +217,7 @@ class TranscriptMessage(BaseModel):
 
 class CameraFramesMessage(BaseModel):
     type: Literal["camera_frames"] = "camera_frames"
-    frames: list[str]  # base64 JPEG
+    frames: List[str]
 
 
 class CameraErrorMessage(BaseModel):
@@ -138,13 +226,28 @@ class CameraErrorMessage(BaseModel):
 
 class TtsAudioMessage(BaseModel):
     type: Literal["tts_audio"] = "tts_audio"
-    data: str  # base64 mp3
+    data: str
 
 
 class CanvasOpsMessage(BaseModel):
     type: Literal["canvas_ops"] = "canvas_ops"
-    operations: list[CanvasOperation]
+    operations: List[CanvasOperation]
+
+
+class ActionMessage(BaseModel):
+    type: Literal["action"] = "action"
+    action: str
 
 
 class SuggestionDismissedMessage(BaseModel):
     type: Literal["suggestion_dismissed"] = "suggestion_dismissed"
+
+
+class TtsTextMessage(BaseModel):
+    type: Literal["tts_text"] = "tts_text"
+    text: str
+
+
+class AgentStatusMessage(BaseModel):
+    type: Literal["agent_status"] = "agent_status"
+    text: str

@@ -4,8 +4,8 @@ from unittest.mock import MagicMock, call
 
 import pytest
 
-from models import ConversationTurn, SessionContext
-from session_loader import CONVERSATION_MAX_TURNS, SessionLoader, SessionNotFoundError
+from apps.api.app.models import ConversationTurn, SessionContext
+from apps.api.app.session_loader import CONVERSATION_MAX_TURNS, SessionLoader, SessionNotFoundError
 
 # ─── Fixtures ─────────────────────────────────────────────────────────────────
 

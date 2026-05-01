@@ -10,4 +10,4 @@ dev:
 		--names "web,api" \
 		--prefix-colors "cyan,green" \
 		"npm run dev --workspace=apps/web" \
-		"cd apps/api && .venv/bin/uvicorn main:app --reload --port 8000"
+		"apps/api/.venv/bin/uvicorn apps.api.app.main:app --reload --port 8000"

@@ -5,29 +5,17 @@ build-backend = "hatchling.build"
 [project]
 name = "render-agent"
 version = "0.1.0"
-description = "LangGraph-based agent canvas renderer — generates HTML canvas operations from agent intent"
+description = "Typed canvas render agent for PairCooking"
 requires-python = ">=3.9"
 dependencies = [
-    "langgraph>=0.2",
     "langchain-core>=0.3",
     "pydantic>=2.0",
-    "bleach>=6.0",
 ]
 
 [project.optional-dependencies]
-local = [
-    "sentence-transformers>=3.0",
-]
-supabase = [
-    "supabase>=2.0",
-]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.25",
-    "supabase>=2.0",
-    "sentence-transformers>=3.0",
-    "langsmith>=0.1",
-    "langchain-openai>=0.2",
 ]
 
 [tool.pytest.ini_options]

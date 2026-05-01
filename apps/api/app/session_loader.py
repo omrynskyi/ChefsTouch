@@ -6,7 +6,7 @@ from typing import Any, Optional
 
 from supabase import Client
 
-from models import ConversationTurn, Recipe, RecipeStep, SessionContext
+from apps.api.app.models import ConversationTurn, Recipe, RecipeStep, SessionContext
 
 CONVERSATION_MAX_TURNS = 20
 

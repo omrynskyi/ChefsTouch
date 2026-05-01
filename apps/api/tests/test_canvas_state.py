@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from canvas_state import apply_op, _ensure_double_buffered
+from apps.api.app.canvas_state import apply_op, _ensure_double_buffered
 
 
 def _fresh() -> dict:

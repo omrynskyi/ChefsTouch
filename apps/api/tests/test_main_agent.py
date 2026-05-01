@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from main_agent import AgentState, run_main_agent, build_main_agent_graph
+from packages.agents.main_assistant import AgentState, run_main_assistant
 
 
 # ─── Mock LLM helpers ─────────────────────────────────────────────────────────
@@ -58,7 +58,7 @@ class _ToolThenStreamLLM(_SequenceLLM):
 @pytest.mark.asyncio
 async def test_plain_text_response_sets_tts_text():
     llm = _SequenceLLM([_make_text_msg("Looks perfect, let's go!")])
-    result = await run_main_agent("how am I doing?", "Step 3", {}, llm)  # type: ignore[arg-type]
+    result = await run_main_assistant("how am I doing?", "Step 3", {}, llm)  # type: ignore[arg-type]
 
     assert result["tts_text"] == "Looks perfect, let's go!"
     assert result["canvas_ops"] == []
@@ -77,8 +77,8 @@ async def test_render_canvas_tool_call_populates_ops():
         _make_text_msg("Step one, here we go!"),
     ])
 
-    with patch("main_agent.MainAssistantGraph._run_render_agent", new=AsyncMock(return_value=render_result)):
-        result = await run_main_agent("next step", "Recipe: Pasta", {}, llm)  # type: ignore[arg-type]
+    with patch("packages.agents.main_assistant.graph.MainAssistantGraph._run_render_agent", new=AsyncMock(return_value=render_result)):
+        result = await run_main_assistant("next step", "Recipe: Pasta", {}, llm)  # type: ignore[arg-type]
 
     assert result["canvas_ops"] == fake_ops
     assert result["tts_text"] == "Step one, here we go!"
@@ -94,8 +94,8 @@ async def test_graceful_degradation_when_render_fails():
     async def _fail(*args, **kwargs):
         raise RuntimeError("LLM timeout")
 
-    with patch("main_agent.MainAssistantGraph._run_render_agent", new=_fail):
-        result = await run_main_agent("next step", "", {}, llm)  # type: ignore[arg-type]
+    with patch("packages.agents.main_assistant.graph.MainAssistantGraph._run_render_agent", new=_fail):
+        result = await run_main_assistant("next step", "", {}, llm)  # type: ignore[arg-type]
 
     assert result["canvas_ops"] == []
     assert result["tts_text"] == "Oops, let me try again."
@@ -111,8 +111,8 @@ async def test_fallback_tts_when_all_messages_fail():
     async def _fail(*args, **kwargs):
         raise RuntimeError("error")
 
-    with patch("main_agent.MainAssistantGraph._run_render_agent", new=_fail):
-        result = await run_main_agent("next step", "", {}, llm)  # type: ignore[arg-type]
+    with patch("packages.agents.main_assistant.graph.MainAssistantGraph._run_render_agent", new=_fail):
+        result = await run_main_assistant("next step", "", {}, llm)  # type: ignore[arg-type]
 
     assert "try" in result["tts_text"].lower() or result["tts_text"] != ""
 
@@ -123,7 +123,7 @@ async def test_find_recipes_stub_returns_empty():
         _make_tool_call_msg("find_recipes", {"query": "pasta"}),
         _make_text_msg("Here are some pasta recipes!"),
     ])
-    result = await run_main_agent("show me pasta recipes", "", {}, llm)  # type: ignore[arg-type]
+    result = await run_main_assistant("show me pasta recipes", "", {}, llm)  # type: ignore[arg-type]
 
     assert result["canvas_ops"] == []
     assert result["tts_text"] == "Here are some pasta recipes!"
@@ -134,7 +134,7 @@ async def test_completes_within_latency_budget():
     """Tool calls with mocks should finish well under 4 seconds."""
     llm = _SequenceLLM([_make_text_msg("Done!")])
     result = await asyncio.wait_for(
-        run_main_agent("hello", "", {}, llm),  # type: ignore[arg-type]
+        run_main_assistant("hello", "", {}, llm),  # type: ignore[arg-type]
         timeout=4.0,
     )
     assert result["tts_text"] == "Done!"
@@ -154,8 +154,8 @@ async def test_canvas_state_passed_to_render_agent():
         _make_text_msg("Updated!"),
     ])
 
-    with patch("main_agent.MainAssistantGraph._run_render_agent", new=_capture):
-        await run_main_agent("update", "context", canvas, llm)  # type: ignore[arg-type]
+    with patch("packages.agents.main_assistant.graph.MainAssistantGraph._run_render_agent", new=_capture):
+        await run_main_assistant("update", "context", canvas, llm)  # type: ignore[arg-type]
 
     assert captured[0] == canvas
 
@@ -173,7 +173,7 @@ async def test_render_canvas_repairs_orphaned_recipe_options():
         ),
     )
 
-    result = await run_main_agent("show recipes", "", {}, llm)  # type: ignore[arg-type]
+    result = await run_main_assistant("show recipes", "", {}, llm)  # type: ignore[arg-type]
 
     assert result["canvas_ops"][0] == {"op": "add", "id": "veg-grid", "type": "recipe-grid", "data": {}}
     assert [op["id"] for op in result["canvas_ops"][1:]] == ["veg-opt-1", "veg-opt-2"]
