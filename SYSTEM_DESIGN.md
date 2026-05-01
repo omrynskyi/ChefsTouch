@@ -41,7 +41,15 @@ On first load the canvas is blank with a single centered mic icon, signaling thi
 
 ### 2.2 Agent-Controlled UI
 
-The agent does not return text responses. It emits structured canvas operations that the frontend applies to maintain canvas state. This means the agent can add components, update their content, move them, focus them, or remove them at any point during a conversation turn, not just in response to a user message.
+The agent emits typed canvas operations streamed over WebSocket as **JSONL** (one JSON object per line). Each operation specifies a **component type** and a **data payload** — the agent never writes HTML, CSS, or JavaScript. The React canvas renderer maps each type to its designated React component and zone.
+
+The system uses a **Double-Buffered UI Architecture**:
+- **Active Canvas:** Visible components.
+- **Staging Area:** Hidden in-memory cache where the agent pre-builds and holds components during idle time.
+
+Operations stream **progressively**: the backend continuously patches incomplete JSON chunks into valid partial objects. This allows the UI to "type out" text token-by-token as the LLM generates, rather than waiting for the full component to close.
+
+The agent is constrained to a fixed catalog of named component types. It cannot introduce arbitrary markup.
 
 ### 2.3 Voice First
 
@@ -90,104 +98,70 @@ The user can reject mutations verbally ("remove that step, I like it") and the a
 
 ### 3.5 Canvas Component Library (v1)
 
-The agent picks from a fixed set of components. Each component has a defined JSON schema. The frontend has a renderer for each type. Visual design is TBD — schemas are defined here, not layouts.
+The agent uses a fixed catalog of named component types. Each type has a **defined data schema**, a **default canvas zone**, and a corresponding **React component**. The agent specifies content via data fields — it never specifies zone, size, layer, CSS classes, or HTML.
 
-#### Component Schemas
+#### Component catalog
 
-**recipe-card**
-```json
-{
-  "type": "recipe-card",
-  "id": "string",
-  "data": {
-    "title": "string",
-    "description": "string",
-    "duration_minutes": "number",
-    "servings": "number",
-    "tags": ["string"]
-  }
-}
-```
+| Type | Default zone | Data fields |
+|------|-------------|-------------|
+| `step-view` | center | `step_number`, `total_steps`, `recipe`, `instruction`, `tip?`, `tags?`, `action?` |
+| `progress-bar` | top | `current`, `total` |
+| `timer` | corner-br | `duration_seconds`, `label`, `auto_start` |
+| `suggestion` | bottom | `heading`, `body`, `action_label?` |
+| `alert` | top | `text`, `urgent?` |
+| `recipe-grid` | center | _(no data — children are `recipe-option` ops)_ |
+| `recipe-option` | _(child of recipe-grid)_ | `title`, `description?`, `duration?`, `tags?`, `action` |
+| `ingredient-list` | center | `items: [{name, qty}]` |
+| `camera` | center | `prompt` |
+| `text-card` | center | `body` (markdown) |
 
-**step-view**
-```json
-{
-  "type": "step-view",
-  "id": "string",
-  "data": {
-    "step_number": "number",
-    "total_steps": "number",
-    "instruction": "string",
-    "tip": "string | null"
-  }
-}
-```
-
-**timer**
-```json
-{
-  "type": "timer",
-  "id": "string",
-  "data": {
-    "duration_seconds": "number",
-    "label": "string",
-    "auto_start": "boolean"
-  }
-}
-```
-
-**camera**
-```json
-{
-  "type": "camera",
-  "id": "string",
-  "data": {
-    "prompt": "string"
-  }
-}
-```
-
-**suggestion**
-```json
-{
-  "type": "suggestion",
-  "id": "string",
-  "data": {
-    "heading": "string",
-    "body": "string",
-    "action_label": "string | null"
-  }
-}
-```
-
-**text-card**
-```json
-{
-  "type": "text-card",
-  "id": "string",
-  "data": {
-    "body": "string"
-  }
-}
-```
+Full schema definitions and rendering details are in the Rendering Architecture Spec.
 
 ### 3.6 Canvas Operations
 
-The agent emits a stream of operations over WebSocket. The frontend maintains a canvas state map keyed by component ID and applies each operation as it arrives.
+The agent emits operations as **JSONL** (one JSON object per line) streamed over WebSocket. Each line is independently parseable as it completes — the client does not wait for a complete array. The backend's `JSONStreamHealer` parses the stream and forwards each op to the client immediately via WebSocket.
 
-| Operation | Description |
-|-----------|-------------|
-| `add` | Render a new component |
-| `update` | Update data on an existing component |
-| `remove` | Remove a component from the canvas |
-| `focus` | Bring a component to visual prominence |
-| `move` | Reposition a component (position tokens: `top`, `bottom`, `left`, `right`, `center`, `bottom-right`, etc.) |
+| Operation | Payload | Description |
+|-----------|---------|-------------|
+| `add` | `id`, `type`, `data` | Insert a new component into the Active Canvas |
+| `stage` | `id`, `type`, `data` | Build a component invisibly in the Staging Area |
+| `commit` | `id` | Move a component from Staging to Active |
+| `swap` | `out_id`, `in_id` | Atomic transition: remove `out_id` and commit `in_id` |
+| `update` | `id`, `data` | Complete replacement of the component's data object |
+| `remove` | `id` | Remove a component from canvas or staging memory |
+| `clear_staged`| — | Wipe all components from the Staging Area |
+| `focus` | `id` | Visually emphasize target; clear focus from others |
+| `move` | `id`, `zone` | Relocate a component to a different grid zone |
 
-**Example operation stream:**
+**Predictive Staging:**
+When the system is idle, the Orchestrator predicts the most likely next user intent and prompts the Render Agent to build the corresponding UI into the **Staging Area** using `stage`. When the user performs that action, the system issues a `commit` or `swap`, delivering the UI in ~16ms.
+
+**Streaming lifecycle per op:**
+1. LLM starts streaming a new JSONL line.
+2. Backend healer continuously repairs the incomplete JSON string using stack-based patching.
+3. Healer emits `partial_update` events to the client.
+4. Client merges partial data into state; React re-renders immediately, causing text to "type out" token-by-token.
+5. LLM completes the line → healer parses full op → final data is committed to the component.
+
+
+**Topological ordering rule:** parents before children; most important content first; supplementary components last.
+
+**Example JSONL stream (step view + progress + timer):**
+```jsonl
+{"op":"add","id":"step-1","type":"step-view","data":{"step_number":1,"total_steps":6,"recipe":"Pasta Carbonara","instruction":"Bring a large pot of salted water to a boil.","tags":["~10 min","stovetop"],"action":"next_step"}}
+{"op":"add","id":"progress-1","type":"progress-bar","data":{"current":1,"total":6}}
+{"op":"add","id":"timer-1","type":"timer","data":{"duration_seconds":600,"label":"Boiling","auto_start":true}}
+```
+
+**Update example (advancing to step 2):**
+```jsonl
+{"op":"update","id":"step-1","data":{"step_number":2,"instruction":"Add pasta to the boiling water."}}
+{"op":"update","id":"progress-1","data":{"current":2}}
+```
+
+**WebSocket message format** (one per op, sent immediately as it completes):
 ```json
-{ "op": "add", "id": "step-3", "type": "step-view", "data": { ... }, "position": "center" }
-{ "op": "add", "id": "timer-1", "type": "timer", "data": { "duration_seconds": 360, "label": "Chicken", "auto_start": true }, "position": "bottom-right" }
-{ "op": "remove", "id": "recipe-card-1" }
+{ "type": "canvas_ops", "operations": [ { "op": "add", "id": "step-1", "type": "step-view", "data": { ... } } ] }
 ```
 
 ---
@@ -217,9 +191,9 @@ The system uses a multi-agent architecture orchestrated by a Main Assistant. The
 - Returns: structured analysis (what it sees, assessment, suggested action)
 
 #### Render Agent
-- Receives: conversation state, current canvas state, Main Assistant intent
-- Does: decides which components to add/update/remove/move
-- Returns: ordered list of canvas operations
+- Receives: `{ intent: string, context: string, canvas_state: json }` — canvas state includes exact JSON of both **active** and **staged** components.
+- Does: decides which components to add/stage/commit/swap/update/remove; emits **JSONL** ops; uses `update` for existing IDs (total replacement); orders ops topologically.
+- Returns: JSONL stream of canvas operations — one typed op per line, with progressive partial updates.
 
 ### 4.3 Invocation Pattern
 
@@ -242,6 +216,7 @@ On every turn the API layer reads the current session from the database and inje
 | Layer | Technology |
 |-------|------------|
 | Frontend | React (framework TBD) |
+| Canvas renderer | React component tree; 9-zone CSS grid; typed components mapped by type; skeleton streaming |
 | Backend | Python, FastAPI |
 | Agent harness | LangChain / LangGraph |
 | LLM | OpenAI Responses API (dev: Gemma 4 27B via LM Studio) |
@@ -249,7 +224,9 @@ On every turn the API layer reads the current session from the database and inje
 | STT | Browser-based Whisper (whisper.cpp WASM) or Web Speech API — TBD |
 | TTS | OpenAI TTS via Responses API |
 | Session store | Supabase Postgres (Upstash Redis if latency requires) |
-| Vector DB | Supabase pgvector |
+| Vector DB | Supabase pgvector — recipes only |
+| Render agent catalog | Inline typed component catalog in system prompt (no vector search) |
+| JSONL streaming | Render agent streams one op per line; `JSONStreamHealer` parses partials in real-time |
 | Recipe data | LLM generated on demand + user-addable (scraped dataset TBD) |
 | Auth | Anonymous sessions v1, accounts TBD |
 | Deployment | TBD |
@@ -350,13 +327,14 @@ created_at        timestamp
 | # | Question | Owner | Priority |
 |---|----------|-------|----------|
 | 1 | Assistant name and personality definition | Oleg | High |
-| 2 | Component visual design and layout system | Oleg | High |
+| 2 | ~~Component visual design and layout system~~ — resolved by Rendering Architecture Spec | — | — |
 | 3 | STT final choice: WASM Whisper vs Web Speech API | Oleg | Medium |
 | 4 | Recipe data source: generate on demand vs seed dataset | Oleg | Medium |
 | 5 | Production LLM: OpenAI GPT-4o vs other hosted model | Oleg | Medium |
-| 6 | Canvas position system: token-based vs coordinate-based | Oleg | Medium |
+| 6 | ~~Canvas position system: token-based vs coordinate-based~~ — resolved: 9-zone named CSS grid with per-type default positions; agent never specifies zone | — | — |
 | 7 | Session persistence: how long before a session expires | Oleg | Low |
 | 8 | Upstash Redis: add from day one or wait for latency issues | Oleg | Low |
+| 9 | ~~Design snippet index: manual curation vs auto-generated~~ — resolved: inline typed component catalog in system prompt; no snippet index | — | — |
 
 ---
 

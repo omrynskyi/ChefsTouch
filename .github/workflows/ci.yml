@@ -47,8 +47,7 @@ jobs:
 
       - name: Start API server
         run: |
-          cd apps/api
-          uvicorn main:app --port 8000 &
+          python -m uvicorn apps.api.app.main:app --host 127.0.0.1 --port 8000 > /tmp/uvicorn.log 2>&1 &
           echo $! > /tmp/uvicorn.pid
 
       - name: Wait for server to be ready
@@ -57,6 +56,11 @@ jobs:
             curl -sf http://localhost:8000/health && break
             sleep 1
           done
+          if ! curl -sf http://localhost:8000/health >/dev/null; then
+            echo "API server did not become ready"
+            cat /tmp/uvicorn.log
+            exit 1
+          fi
 
       - name: Health check smoke test
         run: |

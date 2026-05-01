@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Design System — Component Demo</title>
+  <link rel="stylesheet" href="./design-system.css" />
+  <style>
+    /* ── Demo shell ─────────────────────────────────────────────────── */
+    body {
+      background: #e8e2d8;
+      background-image: none;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+      gap: 0;
+    }
+
+    /* ── Sidebar ────────────────────────────────────────────────────── */
+    #sidebar {
+      width: 240px;
+      min-width: 240px;
+      background: #1c1712;
+      color: #faf7f2;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      z-index: 100;
+    }
+    #sidebar h1 {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #a89880;
+      padding: 16px 16px 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      margin-bottom: 0;
+    }
+    .sidebar-section {
+      padding: 10px 0 4px;
+    }
+    .sidebar-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #6b5e4e;
+      padding: 0 16px 6px;
+      display: block;
+    }
+    .comp-btn {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      background: none;
+      border: none;
+      color: #faf7f2;
+      font-size: 13px;
+      font-family: var(--font-sans);
+      padding: 7px 16px;
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.1s;
+      border-radius: 0;
+    }
+    .comp-btn:hover { background: rgba(255,255,255,0.07); transform: none; }
+    .comp-btn:active { background: rgba(255,255,255,0.12); transform: none; }
+    .comp-btn .zone-badge {
+      font-size: 10px;
+      color: #a89880;
+      font-family: var(--font-mono);
+      white-space: nowrap;
+    }
+
+    /* Clear buttons */
+    #sidebar-actions {
+      padding: 12px 16px;
+      border-top: 1px solid rgba(255,255,255,0.07);
+      margin-top: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .clear-btn {
+      background: rgba(200,95,58,0.15);
+      border: 1px solid rgba(200,95,58,0.3);
+      color: #c85f3a;
+      font-size: 12px;
+      font-weight: 500;
+      font-family: var(--font-sans);
+      padding: 7px 12px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      width: 100%;
+      transition: background 0.1s;
+    }
+    .clear-btn:hover { background: rgba(200,95,58,0.25); transform: none; }
+
+    /* ── Canvas wrapper ──────────────────────────────────────────────── */
+    #canvas-wrapper {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      overflow: hidden;
+    }
+
+    /* Device frame */
+    #device {
+      width: 100%;
+      max-width: 900px;
+      height: calc(100vh - 48px);
+      background: var(--surface-bg);
+      background-image:
+        linear-gradient(var(--tile-color) 1px, transparent 1px),
+        linear-gradient(90deg, var(--tile-color) 1px, transparent 1px);
+      background-size: var(--tile-size) var(--tile-size);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.25), 0 4px 16px rgba(0,0,0,0.15);
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Canvas grid — fills the device */
+    #canvas {
+      width: 100%;
+      height: 100%;
+      display: grid;
+      grid-template-columns: 160px 1fr 160px;
+      grid-template-rows: 76px 1fr minmax(80px, auto);
+      grid-template-areas:
+        "corner-tl   top      corner-tr"
+        "left        center   right"
+        "corner-bl   bottom   corner-br";
+    }
+
+    /* Zone slots */
+    .zone-slot {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px;
+      transition: background 0.15s;
+    }
+    .zone-slot[data-zone="center"]    { grid-area: center;    padding: 24px; align-items: center; }
+    .zone-slot[data-zone="top"]       { grid-area: top;       padding: 8px 16px; }
+    .zone-slot[data-zone="bottom"]    { grid-area: bottom;    padding: 8px 16px; width: 100%; }
+    .zone-slot[data-zone="left"]      { grid-area: left;      }
+    .zone-slot[data-zone="right"]     { grid-area: right;     }
+    .zone-slot[data-zone="corner-tl"] { grid-area: corner-tl; align-items: flex-start; justify-content: flex-start; }
+    .zone-slot[data-zone="corner-tr"] { grid-area: corner-tr; align-items: flex-start; justify-content: flex-end; }
+    .zone-slot[data-zone="corner-bl"] { grid-area: corner-bl; align-items: flex-end;   justify-content: flex-start; }
+    .zone-slot[data-zone="corner-br"] { grid-area: corner-br; align-items: flex-end;   justify-content: flex-end;   }
+
+    /* Empty zone indicator */
+    .zone-slot:not(.has-content)::before {
+      content: attr(data-zone);
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(120,100,70,0.25);
+      font-family: var(--font-mono);
+      pointer-events: none;
+    }
+
+    /* Zone hover target highlight */
+    .zone-slot.drop-target {
+      background: rgba(200,95,58,0.06);
+      border: 1px dashed rgba(200,95,58,0.3);
+      border-radius: var(--radius-sm);
+    }
+
+    /* Zone clear button */
+    .zone-clear {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      background: rgba(200,95,58,0.12);
+      border: none;
+      border-radius: var(--radius-sm);
+      color: #c85f3a;
+      font-size: 11px;
+      padding: 2px 6px;
+      cursor: pointer;
+      font-family: var(--font-sans);
+      display: none;
+      z-index: 10;
+      transition: background 0.1s;
+    }
+    .zone-slot.has-content .zone-clear { display: block; }
+    .zone-clear:hover { background: rgba(200,95,58,0.22); transform: none; }
+
+    /* Toast feedback */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(60px);
+      background: #1c1712;
+      color: #faf7f2;
+      font-size: 13px;
+      padding: 8px 18px;
+      border-radius: var(--radius-lg);
+      pointer-events: none;
+      transition: transform 0.2s ease;
+      z-index: 999;
+    }
+    #toast.show { transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+
+<!-- ── Sidebar ─────────────────────────────────────────────────────── -->
+<aside id="sidebar">
+  <h1>Components</h1>
+
+  <div class="sidebar-section">
+    <span class="sidebar-label">Step / Content</span>
+    <button class="comp-btn" onclick="inject('step-card')">Step instruction card <span class="zone-badge">center</span></button>
+    <button class="comp-btn" onclick="inject('recipe-grid')">Recipe selection (3) <span class="zone-badge">center</span></button>
+    <button class="comp-btn" onclick="inject('ingredients-list')">Ingredients list <span class="zone-badge">center</span></button>
+  </div>
+
+  <div class="sidebar-section">
+    <span class="sidebar-label">Overlays</span>
+    <button class="comp-btn" onclick="inject('timer')">Timer <span class="zone-badge">corner-br</span></button>
+    <button class="comp-btn" onclick="inject('suggestion')">Suggestion card <span class="zone-badge">bottom</span></button>
+    <button class="comp-btn" onclick="inject('camera')">Camera trigger <span class="zone-badge">center</span></button>
+  </div>
+
+  <div class="sidebar-section">
+    <span class="sidebar-label">Status</span>
+    <button class="comp-btn" onclick="inject('alert')">Warning alert <span class="zone-badge">top</span></button>
+    <button class="comp-btn" onclick="inject('alert-urgent')">Urgent alert <span class="zone-badge">top</span></button>
+    <button class="comp-btn" onclick="inject('progress')">Step progress bar <span class="zone-badge">top</span></button>
+  </div>
+
+  <div class="sidebar-section">
+    <span class="sidebar-label">Typography</span>
+    <button class="comp-btn" onclick="inject('type-scale')">Type scale <span class="zone-badge">center</span></button>
+    <button class="comp-btn" onclick="inject('tags')">Tags / pills <span class="zone-badge">center</span></button>
+  </div>
+
+  <div class="sidebar-section">
+    <span class="sidebar-label">Animations</span>
+    <button class="comp-btn" onclick="inject('animate-in')">Animate in ↑ <span class="zone-badge">center</span></button>
+    <button class="comp-btn" onclick="inject('pulse')">Pulse on end <span class="zone-badge">corner-br</span></button>
+  </div>
+
+  <div id="sidebar-actions">
+    <button class="clear-btn" onclick="clearAll()">Clear all zones</button>
+  </div>
+</aside>
+
+<!-- ── Canvas ──────────────────────────────────────────────────────── -->
+<div id="canvas-wrapper">
+  <div id="device">
+    <div id="canvas">
+      <div class="zone-slot" data-zone="corner-tl"><button class="zone-clear" onclick="clearZone('corner-tl')">✕</button></div>
+      <div class="zone-slot" data-zone="top"><button class="zone-clear" onclick="clearZone('top')">✕</button></div>
+      <div class="zone-slot" data-zone="corner-tr"><button class="zone-clear" onclick="clearZone('corner-tr')">✕</button></div>
+      <div class="zone-slot" data-zone="left"><button class="zone-clear" onclick="clearZone('left')">✕</button></div>
+      <div class="zone-slot" data-zone="center"><button class="zone-clear" onclick="clearZone('center')">✕</button></div>
+      <div class="zone-slot" data-zone="right"><button class="zone-clear" onclick="clearZone('right')">✕</button></div>
+      <div class="zone-slot" data-zone="corner-bl"><button class="zone-clear" onclick="clearZone('corner-bl')">✕</button></div>
+      <div class="zone-slot" data-zone="bottom"><button class="zone-clear" onclick="clearZone('bottom')">✕</button></div>
+      <div class="zone-slot" data-zone="corner-br"><button class="zone-clear" onclick="clearZone('corner-br')">✕</button></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  // ── Component definitions ──────────────────────────────────────────
+  const COMPONENTS = {
+
+    "step-card": {
+      zone: "center",
+      html: `
+        <div class='card elevated animate-in' style='max-width:520px;width:100%'>
+          <span class='label-muted'>Step 1 of 6 · Pasta Carbonara</span>
+          <p class='text-primary size-lg' style='margin:8px 0 16px'>Bring a large pot of salted water to a boil.</p>
+          <p class='text-secondary size-sm'>Use at least 4 litres of water and 1 tbsp of salt — it should taste like the sea.</p>
+          <div class='tag-row'>
+            <span class='tag'>~10 min</span>
+            <span class='tag'>stovetop</span>
+          </div>
+          <div style='margin-top:20px;display:flex;gap:10px'>
+            <button class='btn-primary' data-component='action-btn' data-action='next_step'>Next step →</button>
+          </div>
+        </div>`,
+    },
+
+    "recipe-grid": {
+      zone: "center",
+      html: `
+        <div style='width:100%'>
+          <span class='label-muted' style='display:block;margin-bottom:12px'>Choose a recipe</span>
+          <div class='recipe-grid'>
+            <div class='recipe-option animate-in' data-component='action-btn' data-action='select_1'>
+              <p class='recipe-title'>Pasta Carbonara</p>
+              <p class='recipe-meta'>25 min · Medium</p>
+              <div class='tag-row'><span class='tag'>italian</span><span class='tag'>eggs</span></div>
+            </div>
+            <div class='recipe-option animate-in' data-component='action-btn' data-action='select_2' style='animation-delay:0.05s'>
+              <p class='recipe-title'>Aglio e Olio</p>
+              <p class='recipe-meta'>15 min · Easy</p>
+              <div class='tag-row'><span class='tag'>italian</span><span class='tag'>vegan</span></div>
+            </div>
+            <div class='recipe-option animate-in' data-component='action-btn' data-action='select_3' style='animation-delay:0.1s'>
+              <p class='recipe-title'>Cacio e Pepe</p>
+              <p class='recipe-meta'>20 min · Hard</p>
+              <div class='tag-row'><span class='tag'>italian</span><span class='tag'>cheese</span></div>
+            </div>
+          </div>
+        </div>`,
+    },
+
+    "ingredients-list": {
+      zone: "center",
+      html: `
+        <div class='card elevated animate-in' style='max-width:460px;width:100%'>
+          <span class='label-muted'>Ingredients · Pasta Carbonara</span>
+          <div class='ingredient-list' style='margin-top:12px'>
+            <div class='ingredient-row'><span class='ingredient-name'>Spaghetti</span><span class='ingredient-qty'>400g</span></div>
+            <div class='ingredient-row'><span class='ingredient-name'>Guanciale</span><span class='ingredient-qty'>150g</span></div>
+            <div class='ingredient-row'><span class='ingredient-name'>Egg yolks</span><span class='ingredient-qty'>4 large</span></div>
+            <div class='ingredient-row'><span class='ingredient-name'>Pecorino Romano</span><span class='ingredient-qty'>80g, grated</span></div>
+            <div class='ingredient-row'><span class='ingredient-name'>Black pepper</span><span class='ingredient-qty'>2 tsp, coarse</span></div>
+            <div class='ingredient-row'><span class='ingredient-name'>Salt</span><span class='ingredient-qty'>to taste</span></div>
+          </div>
+        </div>`,
+    },
+
+    "timer": {
+      zone: "corner-br",
+      html: `
+        <div class='card compact glass timer-ring-card animate-in' data-component='timer' data-duration='6m' data-autostart='true' data-label='Chicken'>
+          <div class='timer-ring-wrap'>
+            <svg class='timer-ring-svg' viewBox='0 0 104 104' xmlns='http://www.w3.org/2000/svg'>
+              <circle class='timer-ring-track' cx='52' cy='52' r='42'/>
+              <circle class='timer-ring-progress' cx='52' cy='52' r='42' stroke-dashoffset='106'/>
+            </svg>
+            <div class='timer-ring-inner'>
+              <span class='font-timer'>6:00</span>
+              <span class='timer-label'>Chicken</span>
+            </div>
+          </div>
+        </div>`,
+    },
+
+    "suggestion": {
+      zone: "bottom",
+      html: `
+        <div class='card glass suggestion-card animate-in' zone='bottom' size='medium' layer='float'>
+          <div class='suggestion-body'>
+            <span class='label-muted'>While you wait</span>
+            <p class='text-primary size-md suggestion-text'>You could chop the garlic now — it'll save you time in step 3.</p>
+          </div>
+          <button class='card compact interactive suggestion-action' data-component='action-btn' data-action='dismiss_suggestion'>Dismiss</button>
+        </div>`,
+    },
+
+
+    "camera": {
+      zone: "center",
+      html: `
+        <div class='card elevated animate-in' style='max-width:400px;width:100%;text-align:center' data-component='camera' data-prompt='Is the chicken cooked through?'>
+          <span class='label-muted'>Camera check</span>
+          <div style='margin:16px 0;padding:40px 0;background:var(--surface-muted);border-radius:var(--radius-sm);color:var(--text-muted);font-size:13px'>
+            📷 Camera preview
+          </div>
+          <p class='text-secondary size-sm'>Analysing: <em>Is the chicken cooked through?</em></p>
+        </div>`,
+    },
+
+    "alert": {
+      zone: "top",
+      html: `<div class='alert animate-in' style='width:100%'>⚠️ The pan is getting too hot — lower the heat now.</div>`,
+    },
+
+    "alert-urgent": {
+      zone: "top",
+      html: `<div class='alert alert-urgent animate-in' style='width:100%'>🔥 Burning risk! Remove pan from heat immediately.</div>`,
+    },
+
+    "progress": {
+      zone: "top",
+      html: `
+        <div class='progress-bar card compact animate-in' style='width:100%;max-width:340px' data-component='progress' data-current='3' data-total='7'>
+          <span class='label-muted'>Step 3 of 7</span>
+          <div class='progress-track'><div class='progress-fill' style='width:42%'></div></div>
+        </div>`,
+    },
+
+    "type-scale": {
+      zone: "center",
+      html: `
+        <div class='card elevated animate-in' style='max-width:480px;width:100%'>
+          <span class='label-muted'>Typography scale</span>
+          <hr class='divider' />
+          <p class='label-muted' style='margin-top:8px'>label-muted — STEP 3 OF 6</p>
+          <p class='text-secondary size-sm'>text-secondary size-sm — Optional tip text</p>
+          <p class='text-secondary size-md'>text-secondary size-md — Supporting content</p>
+          <p class='text-primary size-md'>text-primary size-md — Body instruction text</p>
+          <p class='text-primary size-lg'>text-primary size-lg — Primary step instruction</p>
+          <p class='font-mono size-xl' style='color:var(--text-primary);margin-top:4px'>6:00</p>
+          <p class='text-secondary size-sm muted' style='margin-top:4px'>font-mono size-xl (muted)</p>
+        </div>`,
+    },
+
+    "tags": {
+      zone: "center",
+      html: `
+        <div class='card animate-in' style='max-width:360px;width:100%'>
+          <span class='label-muted'>Tags & pills</span>
+          <div class='tag-row'>
+            <span class='tag'>italian</span>
+            <span class='tag'>30 min</span>
+            <span class='tag'>medium</span>
+            <span class='tag'>pasta</span>
+            <span class='tag'>gluten</span>
+          </div>
+          <hr class='divider' />
+          <div style='display:flex;gap:10px;margin-top:4px;flex-wrap:wrap'>
+            <button>Default button</button>
+            <button class='btn-primary'>btn-primary</button>
+          </div>
+        </div>`,
+    },
+
+    "animate-in": {
+      zone: "center",
+      html: `
+        <div class='card elevated animate-in' style='max-width:380px;width:100%;text-align:center;padding:32px'>
+          <span class='label-muted'>animate-in</span>
+          <p class='text-primary size-lg' style='margin-top:8px'>Fades in + slides up</p>
+          <p class='text-secondary size-sm' style='margin-top:8px'>Click again to replay</p>
+        </div>`,
+    },
+
+    "pulse": {
+      zone: "corner-br",
+      html: `
+        <div class='card compact glass timer-ring-card pulse-on-end'>
+          <div class='timer-ring-wrap'>
+            <svg class='timer-ring-svg' viewBox='0 0 104 104' xmlns='http://www.w3.org/2000/svg'>
+              <circle class='timer-ring-track' cx='52' cy='52' r='42'/>
+              <circle class='timer-ring-progress' cx='52' cy='52' r='42' stroke-dashoffset='264'/>
+            </svg>
+            <div class='timer-ring-inner'>
+              <span class='font-timer'>0:00</span>
+              <span class='timer-label'>Done!</span>
+            </div>
+          </div>
+        </div>`,
+    },
+  };
+
+  // ── Inject a component into its default zone ───────────────────────
+  function inject(name) {
+    const comp = COMPONENTS[name];
+    if (!comp) return;
+    const slot = document.querySelector(`.zone-slot[data-zone="${comp.zone}"]`);
+    if (!slot) return;
+
+    // Remove existing content (keep the clear button)
+    const btn = slot.querySelector('.zone-clear');
+    slot.innerHTML = '';
+    slot.appendChild(btn);
+
+    // For animate-in, force re-trigger by re-inserting
+    const tmp = document.createElement('div');
+    tmp.innerHTML = comp.html.trim();
+    const el = tmp.firstElementChild;
+    // Re-trigger animation
+    el.style.animation = 'none';
+    slot.appendChild(el);
+    requestAnimationFrame(() => { el.style.animation = ''; });
+
+    slot.classList.add('has-content');
+    toast(name.replace(/-/g, ' '));
+  }
+
+  // ── Clear a single zone ───────────────────────────────────────────
+  function clearZone(zone) {
+    const slot = document.querySelector(`.zone-slot[data-zone="${zone}"]`);
+    if (!slot) return;
+    const btn = slot.querySelector('.zone-clear');
+    slot.innerHTML = '';
+    slot.appendChild(btn);
+    slot.classList.remove('has-content');
+  }
+
+  // ── Clear all zones ───────────────────────────────────────────────
+  function clearAll() {
+    document.querySelectorAll('.zone-slot').forEach(slot => {
+      const btn = slot.querySelector('.zone-clear');
+      slot.innerHTML = '';
+      slot.appendChild(btn);
+      slot.classList.remove('has-content');
+    });
+  }
+
+  // ── Toast feedback ────────────────────────────────────────────────
+  function toast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => t.classList.remove('show'), 1800);
+  }
+</script>
+</body>
+</html>

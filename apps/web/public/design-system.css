@@ -1,0 +1,697 @@
+/* ═══════════════════════════════════════════════════════════════
+   PairCooking Design System — Canvas UI
+   Light mode only. No external imports. Self-contained.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Tokens ─────────────────────────────────────────────────────── */
+
+:root {
+  /* Surface */
+  --surface-bg:      #faf7f2;      /* warm off-white — page/canvas background */
+  --surface-card:    #ffffff;
+  --surface-muted:   #f2ede4;      /* slightly deeper warm tone for subtle cards */
+  --surface-glass:   rgba(255, 252, 245, 0.72);
+
+  /* Tile pattern overlay — linen/grid feel */
+  --tile-color:      rgba(180, 160, 130, 0.10);
+  --tile-size:       28px;
+
+  /* Borders */
+  --border-subtle:   rgba(120, 100, 70, 0.10);
+  --border-medium:   rgba(120, 100, 70, 0.18);
+
+  /* Shadow */
+  --shadow-card:     0 2px 12px rgba(80, 60, 30, 0.10), 0 1px 3px rgba(80, 60, 30, 0.07);
+  --shadow-elevated: 0 6px 24px rgba(80, 60, 30, 0.14), 0 2px 6px rgba(80, 60, 30, 0.08);
+
+  /* Text */
+  --text-primary:    #1c1712;
+  --text-secondary:  #6b5e4e;
+  --text-muted:      #a89880;
+
+  /* Accent — warm terracotta */
+  --accent:          #c85f3a;
+  --accent-soft:     rgba(200, 95, 58, 0.10);
+  --accent-text:     #a84a2a;
+
+  /* Semantic */
+  --warning-bg:      #fff7ed;
+  --warning-border:  rgba(200, 95, 58, 0.30);
+  --warning-text:    #92400e;
+
+  /* Spacing */
+  --space-xs:   6px;
+  --space-sm:   10px;
+  --space-md:   16px;
+  --space-lg:   24px;
+  --space-xl:   36px;
+
+  /* Radius */
+  --radius-sm:  8px;
+  --radius-md:  14px;
+  --radius-lg:  20px;
+  --radius-pill: 999px;
+
+  /* Type */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-mono: "SF Mono", "Fira Code", "Menlo", monospace;
+
+  /* Grid layout */
+  --grid-col-side:   280px;
+  --grid-row-top:     76px;
+  --grid-row-bottom:  80px;
+
+  /* Alert colours */
+  --alert-bg:         #fff2df;
+  --alert-urgent-bg:  #ffe4db;
+
+  /* Component content widths */
+  --comp-w-narrow:  480px;
+  --comp-w-medium:  560px;
+  --comp-w-wide:    680px;
+
+  /* Skeleton placeholder heights */
+  --sk-h-step-view:       220px;
+  --sk-h-progress-bar:     32px;
+  --sk-h-timer:           104px;
+  --sk-h-suggestion:       80px;
+  --sk-h-alert:            44px;
+  --sk-h-recipe-grid:     200px;
+  --sk-h-recipe-option:   120px;
+  --sk-h-ingredient-list: 180px;
+  --sk-h-camera:          200px;
+  --sk-h-text-card:        80px;
+}
+
+
+/* ── Base reset ──────────────────────────────────────────────────── */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background-color: var(--surface-bg);
+  /* Linen tile pattern: subtle crosshatch */
+  background-image:
+    linear-gradient(var(--tile-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--tile-color) 1px, transparent 1px);
+  background-size: var(--tile-size) var(--tile-size);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+ul, ol { padding-left: 20px; }
+li     { margin-bottom: 5px; }
+p + p  { margin-top: 8px; }
+h1, h2, h3 { font-weight: 600; line-height: 1.2; margin-bottom: 6px; }
+strong { font-weight: 600; }
+
+
+/* ── Canvas grid ─────────────────────────────────────────────────── */
+
+.canvas-grid {
+  display: grid;
+  width: 100vw;
+  height: 100vh;
+  grid-template-columns: var(--grid-col-side) 1fr var(--grid-col-side);
+  grid-template-rows: min-content 1fr min-content;
+  grid-template-areas:
+    "corner-tl   top      corner-tr"
+    "left        center   right"
+    "corner-bl   bottom   corner-br";
+}
+
+[zone="center"]    { grid-area: center;    display: flex; flex-direction: column; align-items: center; justify-content: center; padding: var(--space-lg); }
+[zone="top"]       { grid-area: top;       display: flex; flex-direction: column; align-items: center; justify-content: center; padding: var(--space-sm) var(--space-md); }
+[zone="bottom"]    { grid-area: bottom;    display: flex; flex-direction: column; align-items: center; justify-content: center; padding: var(--space-sm) var(--space-md); }
+[zone="left"]      { grid-area: left;      display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; padding: var(--space-md) var(--space-sm) var(--space-md) var(--space-md); overflow-y: auto; }
+[zone="right"]     { grid-area: right;     display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; padding: var(--space-sm) var(--space-sm) var(--space-sm) var(--space-xs); overflow: hidden; }
+[zone="corner-tl"] { grid-area: corner-tl; display: flex; align-items: flex-start; justify-content: flex-start; padding: var(--space-sm); }
+[zone="corner-tr"] { grid-area: corner-tr; display: flex; align-items: flex-start; justify-content: flex-end;   padding: var(--space-sm); }
+[zone="corner-bl"] { grid-area: corner-bl; display: flex; align-items: flex-end;   justify-content: flex-start; padding: var(--space-sm); }
+[zone="corner-br"] { grid-area: corner-br; display: flex; align-items: flex-end;   justify-content: flex-end;   padding: var(--space-md); }
+
+/* Component sizing utilities — use these instead of inline max-width styles */
+.comp-full   { width: 100%; }
+.comp-narrow { width: 100%; max-width: var(--comp-w-narrow); }
+.comp-medium { width: 100%; max-width: var(--comp-w-medium); }
+.comp-wide   { width: 100%; max-width: var(--comp-w-wide); }
+
+
+/* ── Cards ───────────────────────────────────────────────────────── */
+
+.card {
+  background: var(--surface-card);
+  border-radius: var(--radius-md);
+  padding: var(--space-md) var(--space-lg);
+  width: 100%;
+  /* No border — shadow does the separation work */
+  box-shadow: var(--shadow-card);
+}
+
+/* Primary focus — stronger shadow, slightly larger radius */
+.card.elevated {
+  box-shadow: var(--shadow-elevated);
+  border-radius: var(--radius-lg);
+}
+
+/* Smaller padding for peripheral components (timers, tags) */
+.card.compact {
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-sm);
+}
+
+/* Floating overlay above base content, blurred glass */
+.card.glass {
+  background: var(--surface-glass);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: var(--shadow-card);
+}
+
+/* Tappable — cursor + hover lift */
+.card.interactive {
+  cursor: pointer;
+  transition: transform 0.14s ease, box-shadow 0.14s ease;
+}
+.card.interactive:hover,
+.card.interactive:focus-visible {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-elevated);
+  outline: none;
+}
+.card.interactive:active {
+  transform: translateY(-1px);
+}
+
+
+/* ── Typography ──────────────────────────────────────────────────── */
+
+.text-primary {
+  color: var(--text-primary);
+  line-height: 1.45;
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+/* Uppercase eyebrow label — step counters, category metadata */
+.label-muted {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: var(--space-xs);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+.muted {
+  opacity: 0.45;
+}
+
+/* Size scale — composable with .text-* */
+.size-sm  { font-size: 13px; line-height: 1.5; }
+.size-md  { font-size: 16px; line-height: 1.5; }
+.size-lg  { font-size: 22px; font-weight: 500; line-height: 1.35; }
+.size-xl  { font-size: 52px; font-weight: 600; line-height: 1; letter-spacing: -0.02em; }
+
+
+/* ── Timer ───────────────────────────────────────────────────────── */
+
+/* Wrapper card sizing */
+.timer-ring-card {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--space-sm);
+  width: auto;
+}
+
+/* SVG + inner text stacked */
+.timer-ring-wrap {
+  position: relative;
+  width: 104px;
+  height: 104px;
+}
+
+/* SVG rotated so arc starts at 12 o'clock */
+.timer-ring-svg {
+  width: 104px;
+  height: 104px;
+  transform: rotate(-90deg);
+}
+
+/* Background track circle */
+.timer-ring-track {
+  fill: none;
+  stroke: var(--border-medium);
+  stroke-width: 6;
+}
+
+/* Foreground progress arc — set stroke-dashoffset via inline style */
+/* circumference = 2 * π * r(42) ≈ 264 */
+.timer-ring-progress {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-dasharray: 264;
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 1s linear;
+}
+
+/* Centered number + label inside the ring */
+.timer-ring-inner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+/* Distinctive timer number font — light weight, wide spacing */
+.font-timer {
+  font-family: var(--font-sans);
+  font-weight: 200;
+  font-size: 26px;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+/* Label beneath the number */
+.timer-label {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+/* Legacy flat display — kept for backwards compat */
+.timer-display {
+  display: block;
+  color: var(--text-primary);
+}
+
+
+/* ── Alert / warning ─────────────────────────────────────────────── */
+
+.alert {
+  background: var(--alert-bg);
+  border: 1px solid rgba(200, 150, 80, 0.28);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  color: var(--warning-text);
+  font-weight: 500;
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  box-shadow: var(--shadow-card);
+}
+
+.alert.alert-urgent {
+  background: var(--alert-urgent-bg);
+  border-color: rgba(200, 95, 58, 0.3);
+  color: var(--accent-text);
+}
+
+/* No top radius + merged border when attached below step-view */
+.alert.alert--attached {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  border-top: none;
+  box-shadow: 0 4px 12px rgba(80, 60, 30, 0.10);
+}
+
+.alert-text {
+  flex: 1;
+  line-height: 1.45;
+}
+
+.alert-dismiss {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: currentColor;
+  opacity: 0.5;
+  font-size: 14px;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 1px;
+  transition: opacity 0.1s;
+}
+.alert-dismiss:hover { opacity: 1; background: none; }
+
+/* Step-view card with alert attached below — drop bottom radius */
+.card.card--joined {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+
+/* ── Progress bar ────────────────────────────────────────────────── */
+
+/* Outer track */
+.progress-track {
+  background: var(--surface-muted);
+  border-radius: var(--radius-pill);
+  height: 6px;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* Filled portion — set width via inline style: style="width:40%" */
+.progress-fill {
+  background: var(--accent);
+  border-radius: var(--radius-pill);
+  height: 100%;
+  transition: width 0.4s ease;
+}
+
+/* Wrapper with label above the bar */
+.progress-bar {
+  width: 100%;
+}
+
+.progress-bar .label-muted {
+  margin-bottom: 6px;
+}
+
+
+/* ── Recipe selection grid ───────────────────────────────────────── */
+
+/* 3-column grid of tappable recipe cards */
+.recipe-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-md);
+  width: 100%;
+}
+
+/* Individual recipe option — child of .recipe-grid */
+.recipe-option {
+  background: var(--surface-card);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  cursor: pointer;
+  transition: transform 0.14s ease, box-shadow 0.14s ease;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+.recipe-option:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-elevated);
+}
+.recipe-option:active {
+  transform: translateY(-1px);
+}
+
+/* Recipe title inside the option card */
+.recipe-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+/* Short recipe description or metadata */
+.recipe-meta {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+
+/* ── Ingredients list ────────────────────────────────────────────── */
+
+/* Scrollable ingredient list container */
+.ingredient-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-height: 340px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-medium) transparent;
+}
+
+/* Single ingredient row — name on left, quantity on right */
+.ingredient-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  gap: var(--space-md);
+}
+.ingredient-row:last-child {
+  border-bottom: none;
+}
+
+/* Ingredient name */
+.ingredient-name {
+  color: var(--text-primary);
+  font-size: 15px;
+}
+
+/* Quantity / measure — right-aligned, slightly muted */
+.ingredient-qty {
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+
+/* ── Suggestion card ─────────────────────────────────────────────── */
+
+/* Bottom-zone suggestion: label + text stacked, dismiss button full-width below */
+.suggestion-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  width: 100%;
+  max-width: var(--comp-w-medium);
+  margin: 0 auto;
+}
+
+.suggestion-card .suggestion-body {
+  width: 100%;
+}
+
+.suggestion-card .suggestion-text {
+  margin-top: 4px;
+}
+
+.suggestion-card .suggestion-action {
+  width: 100%;
+  text-align: center;
+}
+
+
+/* ── Tags / pills ────────────────────────────────────────────────── */
+
+.tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-top: var(--space-sm);
+}
+
+.tag {
+  background: var(--surface-muted);
+  border-radius: var(--radius-pill);
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+
+/* ── Buttons ─────────────────────────────────────────────────────── */
+
+button {
+  background: var(--surface-muted);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 9px 18px;
+  transition: background 0.12s ease, transform 0.1s ease;
+}
+button:hover  { background: var(--border-medium); }
+button:active { transform: scale(0.97); }
+
+/* Accent-filled CTA button */
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  border-radius: var(--radius-sm);
+  padding: 10px 20px;
+  font-weight: 600;
+  font-size: 15px;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.12s ease, transform 0.1s ease;
+}
+.btn-primary:hover  { opacity: 0.88; }
+.btn-primary:active { transform: scale(0.97); }
+
+
+/* ── Divider ─────────────────────────────────────────────────────── */
+
+.divider {
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+  margin: var(--space-md) 0;
+}
+
+
+/* ── Animations ──────────────────────────────────────────────────── */
+
+@keyframes _fadeSlideIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes _fadeSlideOut {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(6px); }
+}
+
+@keyframes _pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.35; }
+}
+
+@keyframes _hoverLift {
+  to { transform: translateY(-3px); }
+}
+
+/* Enter animation — fade + slide up */
+.animate-in {
+  animation: _fadeSlideIn 0.18s ease-out both;
+}
+
+/* Exit animation */
+.animate-out {
+  animation: _fadeSlideOut 0.15s ease-in both;
+}
+
+/* Hover lift without JS — for non-.interactive elements */
+.hover-lift {
+  transition: transform 0.14s ease, box-shadow 0.14s ease;
+}
+.hover-lift:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-elevated);
+}
+
+/* Pulsing glow when a timer hits zero */
+.pulse-on-end {
+  animation: _pulse 0.9s ease-in-out infinite;
+}
+
+
+/* ── Status dot (WS connection indicator) ────────────────────── */
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.status-dot[data-status="connected"]    { background: #22c55e; }
+.status-dot[data-status="reconnecting"] { background: #f59e0b; animation: _pulse 1.2s ease-in-out infinite; }
+.status-dot[data-status="failed"]       { background: #ef4444; }
+
+
+/* ── StepMini — compact step above camera ────────────────────── */
+
+.step-mini {
+  padding: var(--space-xs) var(--space-sm);
+  margin-bottom: var(--space-xs);
+  flex-shrink: 0;
+}
+.step-mini .label-muted { margin-bottom: 2px; }
+
+
+/* ── Camera in right zone — fills remaining height ───────────── */
+
+[zone="right"] .card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+[zone="right"] .card > div[style*="aspect-ratio"] {
+  flex: 1;
+  aspect-ratio: unset;
+}
+
+
+/* ── Skeleton shimmer ────────────────────────────────────────── */
+
+@keyframes _shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--surface-muted) 25%,
+    var(--border-subtle) 50%,
+    var(--surface-muted) 75%
+  );
+  background-size: 200% 100%;
+  animation: _shimmer 1.4s ease-in-out infinite;
+  border-radius: var(--radius-md);
+}
+
+
+/* ── Responsive canvas ───────────────────────────────────────── */
+
+@media (max-width: 600px) {
+  .canvas-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    grid-template-areas:
+      "top"
+      "center"
+      "bottom"
+      "corner-br";
+    height: auto;
+    min-height: 100vh;
+  }
+
+  [zone="corner-tl"],
+  [zone="corner-tr"],
+  [zone="left"],
+  [zone="right"],
+  [zone="corner-bl"] {
+    display: none;
+  }
+}

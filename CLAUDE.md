@@ -26,11 +26,9 @@ npm run test --workspace=apps/web -- src/canvas/reducer.test.ts
 
 ### Backend (`apps/api`)
 ```bash
-cd apps/api
-uvicorn main:app --reload --port 8000   # dev server
-python3 -m pytest tests/ -v            # full suite
-python3 -m pytest tests/test_session_loader.py -v   # single file
-python3 seed.py                         # seed 5 sample recipes (idempotent)
+uvicorn apps.api.app.main:app --reload --port 8000           # dev server
+python3 -m pytest apps/api/tests -v                          # full suite
+python3 -m pytest apps/api/tests/test_session_loader.py -v   # single file
 ```
 
 ### Shared types (`packages/types`)
@@ -39,16 +37,26 @@ npm run build --workspace=packages/types   # compile TS → dist/
 ```
 Must be rebuilt after changes to `packages/types/src/index.ts` before the frontend picks them up.
 
+### Agent packages (`packages/agents`)
+```bash
+python3 -m pytest packages/agents/render_agent/tests -v   # render-agent tests
+```
+
 ---
 
 ## Architecture
 
 ### Monorepo layout
 - `apps/web` — React + Vite frontend (TypeScript)
-- `apps/api` — FastAPI backend (Python 3.9+)
+- `apps/api/app` — FastAPI backend app package (Python 3.9+)
+- `packages/agents` — decision-agent packages kept in one place:
+  - `main_assistant` — orchestrator
+  - `render_agent` — typed canvas rendering agent
+  - `recipe_agent` — recipe lookup/generation interface
+  - `image_inference_agent` — vision analysis interface
 - `packages/types` — canonical schemas shared across both, with two mirrors:
   - `packages/types/src/index.ts` — TypeScript (consumed by `apps/web`)
-  - `packages/types/python/canvas_types.py` — Pydantic (consumed by `apps/api` via `sys.path` in `main.py`)
+  - `packages/types/python/canvas_types.py` — Pydantic mirror for Python consumers
 
 ### Real-time transport
 All meaningful communication goes over a single persistent WebSocket at `ws://localhost:8000/ws`, not REST. The frontend never calls HTTP endpoints beyond the initial health check.
@@ -71,10 +79,10 @@ The reducer (`src/canvas/reducer.ts`) is a pure function — testable without Re
 ### Backend session flow
 Every agent turn will follow the pattern:
 1. `SessionLoader(get_client()).load(session_id)` → returns `SessionContext` (conversation trimmed to 20 turns, active `Recipe` joined in)
-2. Run agent logic
+2. `apps.api.app.services.agent_runner.run_agent_turn(...)` orchestrates the agent call
 3. On success only: `loader.save(context)` → single atomic `UPDATE sessions SET ...`
 
-`SessionContext` (in `models.py`) is the enriched agent-facing object. `Session` is the raw DB row model. Don't conflate them.
+`SessionContext` (in `apps/api/app/models.py`) is the enriched agent-facing object. `Session` is the raw DB row model. Don't conflate them.
 
 ### Database
 Supabase Postgres. Two tables in `public` schema, both with RLS enabled (no policies — all access is via `service_role` key from the backend):
