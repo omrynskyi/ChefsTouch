@@ -1,37 +1,58 @@
 // ─── Position tokens ────────────────────────────────────────────────────────
 
 export type PositionToken =
+  | "center"
   | "top"
   | "bottom"
   | "left"
   | "right"
-  | "center"
-  | "bottom-right"
-  | "bottom-left"
-  | "top-right"
-  | "top-left";
+  | "corner-tl"
+  | "corner-tr"
+  | "corner-bl"
+  | "corner-br";
 
 // ─── Component data schemas ──────────────────────────────────────────────────
-
-export interface RecipeCardData {
-  title: string;
-  description: string;
-  duration_minutes: number;
-  servings: number;
-  tags: string[];
-}
 
 export interface StepViewData {
   step_number: number;
   total_steps: number;
+  recipe: string;
   instruction: string;
-  tip: string | null;
+  tip?: string | null;
+  tags?: string[];
+  action?: string;
+}
+
+export interface ProgressBarData {
+  current: number;
+  total: number;
 }
 
 export interface TimerData {
   duration_seconds: number;
   label: string;
   auto_start: boolean;
+}
+
+export interface AlertData {
+  text: string;
+  urgent?: boolean;
+}
+
+export interface RecipeGridData {
+  // no fields — children are recipe-option ops with parent referencing this id
+}
+
+export interface RecipeOptionData {
+  title: string;
+  description?: string;
+  duration?: string;
+  tags?: string[];
+  action: string;
+}
+
+export interface IngredientListData {
+  items: { name: string; qty: string }[];
 }
 
 export interface CameraData {
@@ -41,30 +62,47 @@ export interface CameraData {
 export interface SuggestionData {
   heading: string;
   body: string;
-  action_label: string | null;
+  action_label?: string | null;
 }
 
 export interface TextCardData {
   body: string;
+  input_placeholder?: string;
+  submit_label?: string;
+  input_action_prefix?: string;
+}
+
+export interface AssistantMessageData {
+  text: string;
 }
 
 // ─── Component types ─────────────────────────────────────────────────────────
 
 export type ComponentType =
-  | "recipe-card"
   | "step-view"
+  | "progress-bar"
   | "timer"
+  | "alert"
+  | "recipe-grid"
+  | "recipe-option"
+  | "ingredient-list"
   | "camera"
   | "suggestion"
-  | "text-card";
+  | "text-card"
+  | "assistant-message";
 
 export type ComponentDataMap = {
-  "recipe-card": RecipeCardData;
   "step-view": StepViewData;
+  "progress-bar": ProgressBarData;
   timer: TimerData;
+  alert: AlertData;
+  "recipe-grid": RecipeGridData;
+  "recipe-option": RecipeOptionData;
+  "ingredient-list": IngredientListData;
   camera: CameraData;
   suggestion: SuggestionData;
   "text-card": TextCardData;
+  "assistant-message": AssistantMessageData;
 };
 
 export type ComponentData = ComponentDataMap[ComponentType];
@@ -72,12 +110,20 @@ export type ComponentData = ComponentDataMap[ComponentType];
 export interface CanvasComponent<T extends ComponentType = ComponentType> {
   id: string;
   type: T;
-  data: ComponentDataMap[T];
+  data: ComponentDataMap[T] | null; // null when skeleton: true
   position?: PositionToken;
   focused?: boolean;
+  skeleton?: boolean;
+  /** only set for recipe-option — references the parent recipe-grid id */
+  parent?: string;
 }
 
-export type CanvasState = Map<string, CanvasComponent>;
+export type CanvasMap = Map<string, CanvasComponent>;
+
+export interface CanvasState {
+  active: CanvasMap;
+  staged: CanvasMap;
+}
 
 // ─── Canvas operations ───────────────────────────────────────────────────────
 
@@ -87,6 +133,7 @@ export interface AddOperation<T extends ComponentType = ComponentType> {
   type: T;
   data: ComponentDataMap[T];
   position?: PositionToken;
+  parent?: string;
 }
 
 export interface UpdateOperation {
@@ -111,12 +158,49 @@ export interface MoveOperation {
   position: PositionToken;
 }
 
+/** Sent by the backend as soon as type+id are parsed from the LLM stream.
+ *  The client renders a skeleton placeholder immediately, before data arrives. */
+export interface SkeletonOperation {
+  op: "skeleton";
+  id: string;
+  type: ComponentType;
+}
+
+export interface StageOperation<T extends ComponentType = ComponentType> {
+  op: "stage";
+  id: string;
+  type: T;
+  data: ComponentDataMap[T];
+  position?: PositionToken;
+  parent?: string;
+}
+
+export interface CommitOperation {
+  op: "commit";
+  id: string;
+}
+
+export interface SwapOperation {
+  op: "swap";
+  id: string;
+  out_id: string;
+}
+
+export interface ClearStagedOperation {
+  op: "clear_staged";
+}
+
 export type CanvasOperation =
   | AddOperation
   | UpdateOperation
   | RemoveOperation
   | FocusOperation
-  | MoveOperation;
+  | MoveOperation
+  | SkeletonOperation
+  | StageOperation
+  | CommitOperation
+  | SwapOperation
+  | ClearStagedOperation;
 
 export type OperationType = CanvasOperation["op"];
 
@@ -161,6 +245,11 @@ export interface CanvasOpsMessage {
   operations: CanvasOperation[];
 }
 
+export interface ActionMessage {
+  type: "action";
+  action: string;
+}
+
 export interface SuggestionDismissedMessage {
   type: "suggestion_dismissed";
 }
@@ -170,10 +259,24 @@ export type ClientMessage =
   | AudioChunkMessage
   | CameraFramesMessage
   | CameraErrorMessage
+  | ActionMessage
   | SuggestionDismissedMessage;
+
+export interface TtsTextMessage {
+  type: "tts_text";
+  text: string;
+}
+
+/** Streamed status updates from the main orchestrator. Empty text = clear. */
+export interface AgentStatusMessage {
+  type: "agent_status";
+  text: string;
+}
 
 export type ServerMessage =
   | SessionReadyMessage
   | TranscriptMessage
   | TtsAudioMessage
-  | CanvasOpsMessage;
+  | CanvasOpsMessage
+  | TtsTextMessage
+  | AgentStatusMessage;

@@ -50,8 +50,8 @@ def _make_mock_client(existing_id: Optional[str] = None) -> MagicMock:
 def new_session_client():
     """TestClient where no session exists yet — init must create one."""
     mock_db = _make_mock_client(existing_id=None)
-    with patch("ws_handler.get_client", return_value=mock_db):
-        from main import app
+    with patch("apps.api.app.ws_handler.get_client", return_value=mock_db):
+        from apps.api.app.main import app
         with TestClient(app) as c:
             yield c
 
@@ -60,8 +60,8 @@ def new_session_client():
 def resume_session_client():
     """TestClient where FAKE_SESSION_ID already exists in DB."""
     mock_db = _make_mock_client(existing_id=FAKE_SESSION_ID)
-    with patch("ws_handler.get_client", return_value=mock_db):
-        from main import app
+    with patch("apps.api.app.ws_handler.get_client", return_value=mock_db):
+        from apps.api.app.main import app
         with TestClient(app) as c:
             yield c
 

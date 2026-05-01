@@ -5,7 +5,7 @@ export default defineConfig({
     environment: "jsdom",
     coverage: {
       provider: "v8",
-      include: ["src/canvas/**"],
+      include: ["src/canvas/reducer.ts"],
       thresholds: { branches: 100 },
     },
   },

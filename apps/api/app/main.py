@@ -1,12 +1,7 @@
-import sys
-import os
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../packages/types/python"))
-
 from fastapi import FastAPI, WebSocket
 from dotenv import load_dotenv
 
-from ws_handler import handle_websocket
+from apps.api.app.ws_handler import handle_websocket
 
 load_dotenv()
 

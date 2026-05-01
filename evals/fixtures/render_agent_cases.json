@@ -1,0 +1,338 @@
+[
+  {
+    "id": "recipe_selection_pasta",
+    "category": "recipe_selection",
+    "inputs": {
+      "intent": "Show pasta recipe choices",
+      "context": "",
+      "canvas_state": {"active": {}, "staged": {}},
+      "chunks": [
+        "{\"op\":\"add\",\"id\":\"pasta-opt-1\",\"type\":\"recipe-option\",\"parent\":\"pasta-grid\",\"data\":{\"title\":\"Weeknight Pasta\",\"action\":\"select_pasta_1\"}}\n",
+        "{\"op\":\"add\",\"id\":\"pasta-opt-2\",\"type\":\"recipe-option\",\"parent\":\"pasta-grid\",\"data\":{\"title\":\"Creamy Pasta\",\"action\":\"select_pasta_2\"}}\n"
+      ]
+    },
+    "expected": {"max_ops": 3, "required_types": ["recipe-grid", "recipe-option"], "required_positions": {}}
+  },
+  {
+    "id": "recipe_selection_tacos",
+    "category": "recipe_selection",
+    "inputs": {
+      "intent": "Render taco options",
+      "context": "",
+      "canvas_state": {"active": {}, "staged": {}},
+      "chunks": [
+        "{\"op\":\"add\",\"id\":\"taco-opt-1\",\"type\":\"recipe-option\",\"parent\":\"taco-grid\",\"data\":{\"title\":\"Black Bean Tacos\",\"action\":\"select_taco_1\"}}\n",
+        "{\"op\":\"add\",\"id\":\"taco-opt-2\",\"type\":\"recipe-option\",\"parent\":\"taco-grid\",\"data\":{\"title\":\"Mushroom Tacos\",\"action\":\"select_taco_2\"}}\n"
+      ]
+    },
+    "expected": {"max_ops": 3, "required_types": ["recipe-grid", "recipe-option"], "required_positions": {}}
+  },
+  {
+    "id": "recipe_selection_soup",
+    "category": "recipe_selection",
+    "inputs": {
+      "intent": "Display soup choices",
+      "context": "",
+      "canvas_state": {"active": {}, "staged": {}},
+      "chunks": [
+        "{\"op\":\"add\",\"id\":\"soup-opt-1\",\"type\":\"recipe-option\",\"parent\":\"soup-grid\",\"data\":{\"title\":\"Tomato Soup\",\"action\":\"select_soup_1\"}}\n"
+      ]
+    },
+    "expected": {"max_ops": 2, "required_types": ["recipe-grid", "recipe-option"], "required_positions": {}}
+  },
+  {
+    "id": "recipe_selection_breakfast",
+    "category": "recipe_selection",
+    "inputs": {
+      "intent": "Show breakfast options",
+      "context": "",
+      "canvas_state": {"active": {}, "staged": {}},
+      "chunks": [
+        "{\"op\":\"add\",\"id\":\"breakfast-grid\",\"type\":\"recipe-grid\",\"data\":{}}\n",
+        "{\"op\":\"add\",\"id\":\"breakfast-opt-1\",\"type\":\"recipe-option\",\"parent\":\"breakfast-grid\",\"data\":{\"title\":\"Spinach Omelet\",\"action\":\"select_breakfast_1\"}}\n"
+      ]
+    },
+    "expected": {"max_ops": 2, "required_types": ["recipe-grid", "recipe-option"], "required_positions": {}}
+  },
+  {
+    "id": "recipe_selection_noodles",
+    "category": "recipe_selection",
+    "inputs": {
+      "intent": "Put noodle recipe cards on screen",
+      "context": "",
+      "canvas_state": {"active": {}, "staged": {}},
+      "chunks": [
+        "{\"op\":\"add\",\"id\":\"noodle-opt-1\",\"type\":\"recipe-option\",\"parent\":\"noodle-grid\",\"data\":{\"title\":\"Garlic Noodles\",\"action\":\"select_noodle_1\"}}\n",
+        "{\"op\":\"add\",\"id\":\"noodle-opt-2\",\"type\":\"recipe-option\",\"parent\":\"noodle-grid\",\"data\":{\"title\":\"Sesame Noodles\",\"action\":\"select_noodle_2\"}}\n"
+      ]
+    },
+    "expected": {"max_ops": 3, "required_types": ["recipe-grid", "recipe-option"], "required_positions": {}}
+  },
+  {
+    "id": "step_transition_pasta",
+    "category": "step_transition",
+    "inputs": {
+      "intent": "Advance to pasta step 3",
+      "context": "Recipe: Pasta. Step 2 of 5",
+      "canvas_state": {"active": {}, "staged": {}},
+      "chunks": [
+        "{\"op\":\"add\",\"id\":\"step-pasta-3\",\"type\":\"step-view\",\"data\":{\"step_number\":3,\"total_steps\":5,\"recipe\":\"Pasta\",\"instruction\":\"Add the sauce and stir.\"}}\n",
+        "{\"op\":\"add\",\"id\":\"progress-pasta\",\"type\":\"progress-bar\",\"data\":{\"current\":3,\"total\":5}}\n"
+      ]
+    },
+    "expected": {"max_ops": 2, "required_types": ["step-view", "progress-bar"], "required_positions": {}}
+  },
+  {
+    "id": "step_transition_curry",
+    "category": "step_transition",
+    "inputs": {
+      "intent": "Show curry step 4",
+      "context": "Recipe: Curry. Step 3 of 7",
+      "canvas_state": {"active": {}, "staged": {}},
+      "chunks": [
+        "{\"op\":\"add\",\"id\":\"step-curry-4\",\"type\":\"step-view\",\"data\":{\"step_number\":4,\"total_steps\":7,\"recipe\":\"Curry\",\"instruction\":\"Pour in the coconut milk.\"}}\n",
+        "{\"op\":\"add\",\"id\":\"progress-curry\",\"type\":\"progress-bar\",\"data\":{\"current\":4,\"total\":7}}\n"
+      ]
+    },
+    "expected": {"max_ops": 2, "required_types": ["step-view", "progress-bar"], "required_positions": {}}
+  },
+  {
+    "id": "step_transition_pancakes",
+    "category": "step_transition",
+    "inputs": {
+      "intent": "Render pancake step 3",
+      "context": "Recipe: Pancakes. Step 2 of 4",
+      "canvas_state": {"active": {}, "staged": {}},
+      "chunks": [
+        "{\"op\":\"add\",\"id\":\"step-pancake-3\",\"type\":\"step-view\",\"data\":{\"step_number\":3,\"total_steps\":4,\"recipe\":\"Pancakes\",\"instruction\":\"Flip once bubbles form.\"}}\n",
+        "{\"op\":\"add\",\"id\":\"progress-pancake\",\"type\":\"progress-bar\",\"data\":{\"current\":3,\"total\":4}}\n"
+      ]
+    },
+    "expected": {"max_ops": 2, "required_types": ["step-view", "progress-bar"], "required_positions": {}}
+  },
+  {
+    "id": "step_transition_soup",
+    "category": "step_transition",
+    "inputs": {
+      "intent": "Move soup to step 1",
+      "context": "Recipe: Soup. Step 0 of 4",
+      "canvas_state": {"active": {}, "staged": {}},
+      "chunks": [
+        "{\"op\":\"add\",\"id\":\"step-soup-1\",\"type\":\"step-view\",\"data\":{\"step_number\":1,\"total_steps\":4,\"recipe\":\"Soup\",\"instruction\":\"Warm the pot with oil.\"}}\n",
+        "{\"op\":\"add\",\"id\":\"progress-soup\",\"type\":\"progress-bar\",\"data\":{\"current\":1,\"total\":4}}\n"
+      ]
+    },
+    "expected": {"max_ops": 2, "required_types": ["step-view", "progress-bar"], "required_positions": {}}
+  },
+  {
+    "id": "step_transition_stirfry",
+    "category": "step_transition",
+    "inputs": {
+      "intent": "Advance the stir fry",
+      "context": "Recipe: Stir Fry. Step 4 of 6",
+      "canvas_state": {"active": {}, "staged": {}},
+      "chunks": [
+        "{\"op\":\"add\",\"id\":\"step-stirfry-5\",\"type\":\"step-view\",\"data\":{\"step_number\":5,\"total_steps\":6,\"recipe\":\"Stir Fry\",\"instruction\":\"Return the vegetables and toss.\"}}\n",
+        "{\"op\":\"add\",\"id\":\"progress-stirfry\",\"type\":\"progress-bar\",\"data\":{\"current\":5,\"total\":6}}\n"
+      ]
+    },
+    "expected": {"max_ops": 2, "required_types": ["step-view", "progress-bar"], "required_positions": {}}
+  },
+  {
+    "id": "camera_trigger_steak",
+    "category": "camera_trigger",
+    "inputs": {
+      "intent": "Prompt for a steak photo",
+      "context": "Recipe: Steak. Step 5 of 6",
+      "canvas_state": {"active": {}, "staged": {}},
+      "chunks": [
+        "{\"op\":\"add\",\"id\":\"camera-steak\",\"type\":\"camera\",\"data\":{\"prompt\":\"Show me the center of the steak.\"}}\n"
+      ]
+    },
+    "expected": {"max_ops": 1, "required_types": ["camera"], "required_positions": {}}
+  },
+  {
+    "id": "camera_trigger_pancakes",
+    "category": "camera_trigger",
+    "inputs": {
+      "intent": "Request a pancake photo",
+      "context": "Recipe: Pancakes. Step 3 of 4",
+      "canvas_state": {"active": {}, "staged": {}},
+      "chunks": [
+        "{\"op\":\"add\",\"id\":\"camera-pancake\",\"type\":\"camera\",\"data\":{\"prompt\":\"Hold the pan level so I can see the browning.\"}}\n"
+      ]
+    },
+    "expected": {"max_ops": 1, "required_types": ["camera"], "required_positions": {}}
+  },
+  {
+    "id": "camera_trigger_chicken",
+    "category": "camera_trigger",
+    "inputs": {
+      "intent": "Show the camera prompt for chicken",
+      "context": "Recipe: Chicken Cutlets. Step 4 of 5",
+      "canvas_state": {"active": {}, "staged": {}},
+      "chunks": [
+        "{\"op\":\"add\",\"id\":\"camera-chicken\",\"type\":\"camera\",\"data\":{\"prompt\":\"Point the camera at the thickest part of the chicken.\"}}\n",
+        "{\"op\":\"add\",\"id\":\"alert-chicken\",\"type\":\"alert\",\"data\":{\"text\":\"Good lighting helps the check.\"}}\n"
+      ]
+    },
+    "expected": {"max_ops": 2, "required_types": ["camera", "alert"], "required_positions": {}}
+  },
+  {
+    "id": "camera_trigger_brownies",
+    "category": "camera_trigger",
+    "inputs": {
+      "intent": "Ask for a brownie tray image",
+      "context": "Recipe: Brownies. Step 6 of 7",
+      "canvas_state": {"active": {}, "staged": {}},
+      "chunks": [
+        "{\"op\":\"add\",\"id\":\"camera-brownies\",\"type\":\"camera\",\"data\":{\"prompt\":\"Show me the center of the brownie tray.\"}}\n"
+      ]
+    },
+    "expected": {"max_ops": 1, "required_types": ["camera"], "required_positions": {}}
+  },
+  {
+    "id": "camera_trigger_soup",
+    "category": "camera_trigger",
+    "inputs": {
+      "intent": "Prompt for a soup consistency check",
+      "context": "Recipe: Soup. Step 3 of 4",
+      "canvas_state": {"active": {}, "staged": {}},
+      "chunks": [
+        "{\"op\":\"add\",\"id\":\"camera-soup\",\"type\":\"camera\",\"data\":{\"prompt\":\"Tilt the spoon so I can see the texture.\"}}\n"
+      ]
+    },
+    "expected": {"max_ops": 1, "required_types": ["camera"], "required_positions": {}}
+  },
+  {
+    "id": "timer_placement_pasta",
+    "category": "timer_placement",
+    "inputs": {
+      "intent": "Show a simmer timer",
+      "context": "Recipe: Pasta Sauce. Step 4 of 6",
+      "canvas_state": {"active": {}, "staged": {}},
+      "chunks": [
+        "{\"op\":\"add\",\"id\":\"timer-pasta\",\"type\":\"timer\",\"data\":{\"duration_seconds\":300,\"label\":\"Simmer\",\"auto_start\":true}}\n"
+      ]
+    },
+    "expected": {"max_ops": 1, "required_types": ["timer"], "required_positions": {"timer": "corner-br"}}
+  },
+  {
+    "id": "timer_placement_rice",
+    "category": "timer_placement",
+    "inputs": {
+      "intent": "Render a rice timer",
+      "context": "Recipe: Rice Bowl. Step 3 of 5",
+      "canvas_state": {"active": {}, "staged": {}},
+      "chunks": [
+        "{\"op\":\"add\",\"id\":\"timer-rice\",\"type\":\"timer\",\"position\":\"corner-br\",\"data\":{\"duration_seconds\":600,\"label\":\"Rice\",\"auto_start\":true}}\n"
+      ]
+    },
+    "expected": {"max_ops": 1, "required_types": ["timer"], "required_positions": {"timer": "corner-br"}}
+  },
+  {
+    "id": "timer_placement_bread",
+    "category": "timer_placement",
+    "inputs": {
+      "intent": "Place a dough rest timer",
+      "context": "Recipe: Flatbread. Step 2 of 4",
+      "canvas_state": {"active": {}, "staged": {}},
+      "chunks": [
+        "{\"op\":\"add\",\"id\":\"timer-bread\",\"type\":\"timer\",\"data\":{\"duration_seconds\":900,\"label\":\"Dough rest\",\"auto_start\":true}}\n"
+      ]
+    },
+    "expected": {"max_ops": 1, "required_types": ["timer"], "required_positions": {"timer": "corner-br"}}
+  },
+  {
+    "id": "timer_placement_sauce",
+    "category": "timer_placement",
+    "inputs": {
+      "intent": "Show a sauce reduction timer",
+      "context": "Recipe: Braised Sauce. Step 5 of 7",
+      "canvas_state": {"active": {}, "staged": {}},
+      "chunks": [
+        "{\"op\":\"add\",\"id\":\"timer-ignore\",\"type\":\"timer\",\"position\":\"corner-tl\",\"data\":{\"duration_seconds\":60,\"label\":\"Ignore\",\"auto_start\":true}}\n",
+        "{\"op\":\"add\",\"id\":\"timer-sauce\",\"type\":\"timer\",\"position\":\"corner-br\",\"data\":{\"duration_seconds\":420,\"label\":\"Reduce\",\"auto_start\":true}}\n"
+      ]
+    },
+    "expected": {"max_ops": 1, "required_types": ["timer"], "required_positions": {"timer": "corner-br"}}
+  },
+  {
+    "id": "timer_placement_stock",
+    "category": "timer_placement",
+    "inputs": {
+      "intent": "Add a stock simmer timer",
+      "context": "Recipe: Stock. Step 2 of 5",
+      "canvas_state": {"active": {}, "staged": {}},
+      "chunks": [
+        "{\"op\":\"add\",\"id\":\"timer-stock\",\"type\":\"timer\",\"data\":{\"duration_seconds\":1200,\"label\":\"Stock simmer\",\"auto_start\":true}}\n"
+      ]
+    },
+    "expected": {"max_ops": 1, "required_types": ["timer"], "required_positions": {"timer": "corner-br"}}
+  },
+  {
+    "id": "suggestion_placement_pasta",
+    "category": "suggestion_placement",
+    "inputs": {
+      "intent": "Show a simmer suggestion",
+      "context": "Recipe: Pasta Sauce. Step 4 of 6",
+      "canvas_state": {"active": {}, "staged": {}},
+      "chunks": [
+        "{\"op\":\"add\",\"id\":\"suggestion-pasta\",\"type\":\"suggestion\",\"data\":{\"heading\":\"While you wait\",\"body\":\"Chop the basil and grate the cheese.\"}}\n"
+      ]
+    },
+    "expected": {"max_ops": 1, "required_types": ["suggestion"], "required_positions": {"suggestion": "bottom"}}
+  },
+  {
+    "id": "suggestion_placement_rice",
+    "category": "suggestion_placement",
+    "inputs": {
+      "intent": "Render a rice wait suggestion",
+      "context": "Recipe: Rice Bowl. Step 3 of 5",
+      "canvas_state": {"active": {}, "staged": {}},
+      "chunks": [
+        "{\"op\":\"add\",\"id\":\"suggestion-rice\",\"type\":\"suggestion\",\"position\":\"bottom\",\"data\":{\"heading\":\"While the rice cooks\",\"body\":\"Mix the sauce and slice the cucumbers.\"}}\n"
+      ]
+    },
+    "expected": {"max_ops": 1, "required_types": ["suggestion"], "required_positions": {"suggestion": "bottom"}}
+  },
+  {
+    "id": "suggestion_placement_bread",
+    "category": "suggestion_placement",
+    "inputs": {
+      "intent": "Add a rest period suggestion",
+      "context": "Recipe: Flatbread. Step 2 of 4",
+      "canvas_state": {"active": {}, "staged": {}},
+      "chunks": [
+        "{\"op\":\"add\",\"id\":\"suggestion-bread\",\"type\":\"suggestion\",\"data\":{\"heading\":\"Use the downtime\",\"body\":\"Dust the board and warm the skillet.\"}}\n"
+      ]
+    },
+    "expected": {"max_ops": 1, "required_types": ["suggestion"], "required_positions": {"suggestion": "bottom"}}
+  },
+  {
+    "id": "suggestion_placement_sauce",
+    "category": "suggestion_placement",
+    "inputs": {
+      "intent": "Show a sauce wait suggestion",
+      "context": "Recipe: Braised Sauce. Step 5 of 7",
+      "canvas_state": {"active": {}, "staged": {}},
+      "chunks": [
+        "{\"op\":\"add\",\"id\":\"suggestion-sauce\",\"type\":\"suggestion\",\"data\":{\"heading\":\"During the simmer\",\"body\":\"Taste the seasoning and set the table.\"}}\n"
+      ]
+    },
+    "expected": {"max_ops": 1, "required_types": ["suggestion"], "required_positions": {"suggestion": "bottom"}}
+  },
+  {
+    "id": "suggestion_placement_stock",
+    "category": "suggestion_placement",
+    "inputs": {
+      "intent": "Display a stock simmer suggestion",
+      "context": "Recipe: Stock. Step 2 of 5",
+      "canvas_state": {"active": {}, "staged": {}},
+      "chunks": [
+        "{\"op\":\"add\",\"id\":\"suggestion-stock\",\"type\":\"suggestion\",\"position\":\"bottom\",\"data\":{\"heading\":\"Use the simmer time\",\"body\":\"Skim the foam and prep the storage jars.\"}}\n"
+      ]
+    },
+    "expected": {"max_ops": 1, "required_types": ["suggestion"], "required_positions": {"suggestion": "bottom"}}
+  }
+]
