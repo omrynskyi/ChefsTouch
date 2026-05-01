@@ -12,6 +12,8 @@ venv/
 # Build outputs
 packages/types/dist/
 apps/web/coverage/
+evals/results/*.json
+!evals/results/.gitkeep
 
 # OS
 .DS_Store

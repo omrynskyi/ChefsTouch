@@ -72,6 +72,10 @@ export interface TextCardData {
   input_action_prefix?: string;
 }
 
+export interface AssistantMessageData {
+  text: string;
+}
+
 // ─── Component types ─────────────────────────────────────────────────────────
 
 export type ComponentType =
@@ -84,7 +88,8 @@ export type ComponentType =
   | "ingredient-list"
   | "camera"
   | "suggestion"
-  | "text-card";
+  | "text-card"
+  | "assistant-message";
 
 export type ComponentDataMap = {
   "step-view": StepViewData;
@@ -97,6 +102,7 @@ export type ComponentDataMap = {
   camera: CameraData;
   suggestion: SuggestionData;
   "text-card": TextCardData;
+  "assistant-message": AssistantMessageData;
 };
 
 export type ComponentData = ComponentDataMap[ComponentType];

@@ -15,6 +15,7 @@ export const DEFAULT_ZONE: Record<ComponentType, PositionToken> = {
   "ingredient-list": "left",
   "camera":          "center",    // takes center priority; step-view becomes mini above it
   "text-card":       "center",    // companion-below of step-view
+  "assistant-message":"corner-tl",
 };
 
 // Companions are rendered contextually (below/above a primary) rather than

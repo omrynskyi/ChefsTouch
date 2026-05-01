@@ -17,25 +17,15 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
   const { subscribe } = useWebSocket();
 
   useEffect(() => {
-    const pending: CanvasOperation[] = [];
-    let rafId: number | null = null;
-
-    const flush = () => {
-      rafId = null;
-      const batch = pending.splice(0);
-      for (const op of batch) dispatch(op);
-    };
-
     return subscribe((msg) => {
       if (msg.type === "canvas_ops") {
         for (const op of msg.operations) {
           if (validateOperation(op)) {
-            pending.push(op);
+            dispatch(op);
           } else {
             console.warn("[Canvas] invalid operation from server, discarding", op);
           }
         }
-        if (rafId === null) rafId = requestAnimationFrame(flush);
       }
     });
   }, [subscribe]);

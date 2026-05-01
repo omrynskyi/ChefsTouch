@@ -15,6 +15,7 @@ import { StepView } from "./components/StepView";
 import { Suggestion } from "./components/Suggestion";
 import { TextCard } from "./components/TextCard";
 import { Timer } from "./components/Timer";
+import { AssistantMessage } from "./components/AssistantMessage";
 
 // ── Zone composition rules ────────────────────────────────────────────────────
 //
@@ -91,6 +92,8 @@ function PrimaryRenderer({
       return <Camera data={comp.data as import("@pair-cooking/types").CameraData} focused={comp.focused} onDismiss={onDismiss} />;
     case "text-card":
       return <TextCard data={comp.data as import("@pair-cooking/types").TextCardData} focused={comp.focused} />;
+    case "assistant-message":
+      return <AssistantMessage data={comp.data as import("@pair-cooking/types").AssistantMessageData} focused={comp.focused} />;
     case "alert":
       return null;
   }

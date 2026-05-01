@@ -63,6 +63,62 @@ exports[`Canvas > renders alert in top zone 1`] = `
 </div>
 `;
 
+exports[`Canvas > renders assistant-message in corner-tl 1`] = `
+<div>
+  <div
+    class="canvas-grid"
+  >
+    <div
+      zone="corner-tl"
+    >
+      <div
+        style="width: auto;"
+      >
+        <div
+          style="max-width: min(28rem, 100%); background: rgba(28, 23, 18, 0.9); color: rgba(255, 248, 236, 0.95); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 18px; padding: 12px 14px; box-shadow: 0 8px 24px rgba(0,0,0,0.18);"
+        >
+          <p
+            style="margin: 0px; font-family: var(--font-sans); font-size: 0.95rem; line-height: 1.4; font-weight: 450;"
+          >
+            One sec, I'm on it.
+          </p>
+        </div>
+      </div>
+    </div>
+    <div
+      zone="top"
+    />
+    <div
+      zone="corner-tr"
+    >
+      <div
+        class="status-dot"
+        data-status="connected"
+        title="connected"
+      />
+    </div>
+    <div
+      zone="left"
+    />
+    <div
+      zone="center"
+    />
+    <div
+      zone="right"
+    />
+    <div
+      zone="corner-bl"
+    />
+    <div
+      zone="bottom"
+    />
+    <div
+      zone="corner-br"
+    />
+  </div>
+</div>
+`;
+
 exports[`Canvas > renders camera in center zone 1`] = `
 <div>
   <div

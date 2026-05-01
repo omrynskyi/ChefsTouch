@@ -82,6 +82,10 @@ class TextCardData(BaseModel):
     input_action_prefix: Optional[str] = None
 
 
+class AssistantMessageData(BaseModel):
+    text: str
+
+
 ComponentType = Literal[
     "step-view",
     "progress-bar",
@@ -93,6 +97,7 @@ ComponentType = Literal[
     "camera",
     "suggestion",
     "text-card",
+    "assistant-message",
 ]
 
 
@@ -107,6 +112,7 @@ ComponentData = Union[
     CameraData,
     SuggestionData,
     TextCardData,
+    AssistantMessageData,
 ]
 
 

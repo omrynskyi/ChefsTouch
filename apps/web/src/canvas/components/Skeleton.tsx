@@ -11,6 +11,7 @@ const SKELETON_HEIGHT_VAR: Record<ComponentType, string> = {
   "ingredient-list": "--sk-h-ingredient-list",
   "camera":          "--sk-h-camera",
   "text-card":       "--sk-h-text-card",
+  "assistant-message":"--sk-h-text-card",
 };
 
 export function Skeleton({ type }: { type: ComponentType }) {

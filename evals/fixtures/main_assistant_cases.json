@@ -1,0 +1,561 @@
+[
+  {
+    "id": "recipe_request_pasta",
+    "category": "recipe_request",
+    "inputs": {
+      "intent": "Show me easy pasta recipes",
+      "context": "",
+      "canvas_state": {"active": {}, "staged": {}},
+      "script": {
+        "initial_reply": "I’m pulling together some pasta ideas.",
+        "rounds": [
+          {"type": "tool", "tool_name": "find_recipes", "args": {"query": "easy pasta recipes"}},
+          {"type": "assistant", "text": "I found a few pasta directions to choose from."}
+        ],
+        "find_recipes_result": {"recipes": [{"title": "Weeknight Pasta"}]}
+      }
+    },
+    "expected": {"tool_names": ["find_recipes"], "max_tts_words": 40, "requires_canvas": false}
+  },
+  {
+    "id": "recipe_request_tacos",
+    "category": "recipe_request",
+    "inputs": {
+      "intent": "I want vegetarian tacos",
+      "context": "",
+      "canvas_state": {"active": {}, "staged": {}},
+      "script": {
+        "initial_reply": "I’m searching for vegetarian taco options.",
+        "rounds": [
+          {"type": "tool", "tool_name": "find_recipes", "args": {"query": "vegetarian tacos"}},
+          {"type": "assistant", "text": "I found a few taco ideas that fit."}
+        ],
+        "find_recipes_result": {"recipes": [{"title": "Black Bean Tacos"}]}
+      }
+    },
+    "expected": {"tool_names": ["find_recipes"], "max_tts_words": 40, "requires_canvas": false}
+  },
+  {
+    "id": "recipe_request_soup",
+    "category": "recipe_request",
+    "inputs": {
+      "intent": "Find me a quick soup",
+      "context": "",
+      "canvas_state": {"active": {}, "staged": {}},
+      "script": {
+        "initial_reply": "I’m checking quick soup options now.",
+        "rounds": [
+          {"type": "tool", "tool_name": "find_recipes", "args": {"query": "quick soup"}},
+          {"type": "assistant", "text": "I found a few soups that should work."}
+        ],
+        "find_recipes_result": {"recipes": [{"title": "Tomato Basil Soup"}]}
+      }
+    },
+    "expected": {"tool_names": ["find_recipes"], "max_tts_words": 40, "requires_canvas": false}
+  },
+  {
+    "id": "recipe_request_breakfast",
+    "category": "recipe_request",
+    "inputs": {
+      "intent": "What can I make for breakfast with eggs?",
+      "context": "",
+      "canvas_state": {"active": {}, "staged": {}},
+      "script": {
+        "initial_reply": "I’m looking for egg-based breakfast ideas.",
+        "rounds": [
+          {"type": "tool", "tool_name": "find_recipes", "args": {"query": "breakfast with eggs"}},
+          {"type": "assistant", "text": "I found a few breakfast options with eggs."}
+        ],
+        "find_recipes_result": {"recipes": [{"title": "Spinach Omelet"}]}
+      }
+    },
+    "expected": {"tool_names": ["find_recipes"], "max_tts_words": 40, "requires_canvas": false}
+  },
+  {
+    "id": "recipe_request_noodles",
+    "category": "recipe_request",
+    "inputs": {
+      "intent": "Give me spicy noodle ideas",
+      "context": "",
+      "canvas_state": {"active": {}, "staged": {}},
+      "script": {
+        "initial_reply": "I’m searching for spicy noodle recipes.",
+        "rounds": [
+          {"type": "tool", "tool_name": "find_recipes", "args": {"query": "spicy noodle ideas"}},
+          {"type": "assistant", "text": "I found some noodle options with heat."}
+        ],
+        "find_recipes_result": {"recipes": [{"title": "Spicy Garlic Noodles"}]}
+      }
+    },
+    "expected": {"tool_names": ["find_recipes"], "max_tts_words": 40, "requires_canvas": false}
+  },
+  {
+    "id": "step_navigation_pasta_2",
+    "category": "step_navigation",
+    "inputs": {
+      "intent": "Next step",
+      "context": "Recipe: Pasta. Step 2 of 5",
+      "canvas_state": {"active": {}, "staged": {}},
+      "script": {
+        "initial_reply": "I’m moving you to the next step.",
+        "rounds": [
+          {"type": "tool", "tool_name": "render_canvas", "args": {"intent": "show step 3 of 5 for Pasta"}},
+          {"type": "assistant", "text": "Step three is up on the canvas."}
+        ],
+        "render_stream": [
+          {"op": "add", "id": "step-pasta-3", "type": "step-view", "data": {"step_number": 3, "total_steps": 5, "recipe": "Pasta", "instruction": "Add the sauce and stir."}},
+          {"op": "add", "id": "progress-pasta", "type": "progress-bar", "data": {"current": 3, "total": 5}}
+        ]
+      }
+    },
+    "expected": {"tool_names": ["render_canvas"], "max_tts_words": 40, "requires_canvas": true}
+  },
+  {
+    "id": "step_navigation_stirfry_4",
+    "category": "step_navigation",
+    "inputs": {
+      "intent": "Advance the stir fry",
+      "context": "Recipe: Stir Fry. Step 4 of 6",
+      "canvas_state": {"active": {}, "staged": {}},
+      "script": {
+        "initial_reply": "I’m advancing the stir fry instructions.",
+        "rounds": [
+          {"type": "tool", "tool_name": "render_canvas", "args": {"intent": "show step 5 of 6 for Stir Fry"}},
+          {"type": "assistant", "text": "The next stir fry step is ready."}
+        ],
+        "render_stream": [
+          {"op": "add", "id": "step-stirfry-5", "type": "step-view", "data": {"step_number": 5, "total_steps": 6, "recipe": "Stir Fry", "instruction": "Return the vegetables and toss."}},
+          {"op": "add", "id": "progress-stirfry", "type": "progress-bar", "data": {"current": 5, "total": 6}}
+        ]
+      }
+    },
+    "expected": {"tool_names": ["render_canvas"], "max_tts_words": 40, "requires_canvas": true}
+  },
+  {
+    "id": "step_navigation_soup_1",
+    "category": "step_navigation",
+    "inputs": {
+      "intent": "Show the first step",
+      "context": "Recipe: Soup. Step 0 of 4",
+      "canvas_state": {"active": {}, "staged": {}},
+      "script": {
+        "initial_reply": "I’m loading the first soup step.",
+        "rounds": [
+          {"type": "tool", "tool_name": "render_canvas", "args": {"intent": "show step 1 of 4 for Soup"}},
+          {"type": "assistant", "text": "The soup instructions are ready to go."}
+        ],
+        "render_stream": [
+          {"op": "add", "id": "step-soup-1", "type": "step-view", "data": {"step_number": 1, "total_steps": 4, "recipe": "Soup", "instruction": "Warm the pot with oil."}},
+          {"op": "add", "id": "progress-soup", "type": "progress-bar", "data": {"current": 1, "total": 4}}
+        ]
+      }
+    },
+    "expected": {"tool_names": ["render_canvas"], "max_tts_words": 40, "requires_canvas": true}
+  },
+  {
+    "id": "step_navigation_curry_3",
+    "category": "step_navigation",
+    "inputs": {
+      "intent": "Go to the next curry step",
+      "context": "Recipe: Curry. Step 3 of 7",
+      "canvas_state": {"active": {}, "staged": {}},
+      "script": {
+        "initial_reply": "I’m bringing up the next curry step.",
+        "rounds": [
+          {"type": "tool", "tool_name": "render_canvas", "args": {"intent": "show step 4 of 7 for Curry"}},
+          {"type": "assistant", "text": "The next curry instruction is on screen."}
+        ],
+        "render_stream": [
+          {"op": "add", "id": "step-curry-4", "type": "step-view", "data": {"step_number": 4, "total_steps": 7, "recipe": "Curry", "instruction": "Pour in the coconut milk."}},
+          {"op": "add", "id": "progress-curry", "type": "progress-bar", "data": {"current": 4, "total": 7}}
+        ]
+      }
+    },
+    "expected": {"tool_names": ["render_canvas"], "max_tts_words": 40, "requires_canvas": true}
+  },
+  {
+    "id": "step_navigation_pancakes_2",
+    "category": "step_navigation",
+    "inputs": {
+      "intent": "Keep going with pancakes",
+      "context": "Recipe: Pancakes. Step 2 of 4",
+      "canvas_state": {"active": {}, "staged": {}},
+      "script": {
+        "initial_reply": "I’m moving the pancakes forward.",
+        "rounds": [
+          {"type": "tool", "tool_name": "render_canvas", "args": {"intent": "show step 3 of 4 for Pancakes"}},
+          {"type": "assistant", "text": "The next pancake step is ready."}
+        ],
+        "render_stream": [
+          {"op": "add", "id": "step-pancakes-3", "type": "step-view", "data": {"step_number": 3, "total_steps": 4, "recipe": "Pancakes", "instruction": "Flip once bubbles form."}},
+          {"op": "add", "id": "progress-pancakes", "type": "progress-bar", "data": {"current": 3, "total": 4}}
+        ]
+      }
+    },
+    "expected": {"tool_names": ["render_canvas"], "max_tts_words": 40, "requires_canvas": true}
+  },
+  {
+    "id": "camera_trigger_steak",
+    "category": "camera_trigger",
+    "inputs": {
+      "intent": "Check if the steak is done",
+      "context": "Recipe: Steak. Step 5 of 6",
+      "canvas_state": {"active": {}, "staged": {}},
+      "script": {
+        "initial_reply": "I’m checking the steak photo now.",
+        "rounds": [
+          {"type": "tool", "tool_name": "analyze_image", "args": {"context": "Recipe: Steak. Step 5 of 6"}},
+          {"type": "assistant", "text": "It looks close, but give it another minute."}
+        ],
+        "analyze_result": {"assessment": "nearly done", "suggested_action": "Cook for 1 more minute"}
+      }
+    },
+    "expected": {"tool_names": ["analyze_image"], "max_tts_words": 40, "requires_canvas": false}
+  },
+  {
+    "id": "camera_trigger_pancakes",
+    "category": "camera_trigger",
+    "inputs": {
+      "intent": "Does this pancake need more time?",
+      "context": "Recipe: Pancakes. Step 3 of 4",
+      "canvas_state": {"active": {}, "staged": {}},
+      "script": {
+        "initial_reply": "I’m checking the pancake photo.",
+        "rounds": [
+          {"type": "tool", "tool_name": "analyze_image", "args": {"context": "Recipe: Pancakes. Step 3 of 4"}},
+          {"type": "assistant", "text": "It needs a bit more color before you flip."}
+        ],
+        "analyze_result": {"assessment": "underdone", "suggested_action": "Cook 30 seconds longer"}
+      }
+    },
+    "expected": {"tool_names": ["analyze_image"], "max_tts_words": 40, "requires_canvas": false}
+  },
+  {
+    "id": "camera_trigger_chicken",
+    "category": "camera_trigger",
+    "inputs": {
+      "intent": "Analyze the chicken in the pan",
+      "context": "Recipe: Chicken Cutlets. Step 4 of 5",
+      "canvas_state": {"active": {}, "staged": {}},
+      "script": {
+        "initial_reply": "I’m reviewing the chicken photo now.",
+        "rounds": [
+          {"type": "tool", "tool_name": "analyze_image", "args": {"context": "Recipe: Chicken Cutlets. Step 4 of 5"}},
+          {"type": "assistant", "text": "The chicken still looks pale in the center."}
+        ],
+        "analyze_result": {"assessment": "undercooked", "suggested_action": "Cook 2 more minutes"}
+      }
+    },
+    "expected": {"tool_names": ["analyze_image"], "max_tts_words": 40, "requires_canvas": false}
+  },
+  {
+    "id": "camera_trigger_brownies",
+    "category": "camera_trigger",
+    "inputs": {
+      "intent": "Can you inspect the brownies?",
+      "context": "Recipe: Brownies. Step 6 of 7",
+      "canvas_state": {"active": {}, "staged": {}},
+      "script": {
+        "initial_reply": "I’m checking the brownie tray now.",
+        "rounds": [
+          {"type": "tool", "tool_name": "analyze_image", "args": {"context": "Recipe: Brownies. Step 6 of 7"}},
+          {"type": "assistant", "text": "The top looks set, so you can pull them soon."}
+        ],
+        "analyze_result": {"assessment": "done", "suggested_action": "Remove from oven"}
+      }
+    },
+    "expected": {"tool_names": ["analyze_image"], "max_tts_words": 40, "requires_canvas": false}
+  },
+  {
+    "id": "mutation_rejection_delete_recipe",
+    "category": "mutation_rejection",
+    "inputs": {
+      "intent": "Delete this recipe from the database",
+      "context": "Recipe: Curry. Step 2 of 7",
+      "canvas_state": {"active": {}, "staged": {}},
+      "script": {
+        "initial_reply": "I can guide the cooking flow, but I can’t delete saved recipes here.",
+        "rounds": [{"type": "assistant", "text": ""}]
+      }
+    },
+    "expected": {"tool_names": [], "max_tts_words": 40, "requires_canvas": false}
+  },
+  {
+    "id": "mutation_rejection_change_temperature",
+    "category": "mutation_rejection",
+    "inputs": {
+      "intent": "Rewrite the oven temperature in the recipe record",
+      "context": "Recipe: Lasagna. Step 1 of 8",
+      "canvas_state": {"active": {}, "staged": {}},
+      "script": {
+        "initial_reply": "I can help with the cook session, but I can’t edit stored recipe records here.",
+        "rounds": [{"type": "assistant", "text": ""}]
+      }
+    },
+    "expected": {"tool_names": [], "max_tts_words": 40, "requires_canvas": false}
+  },
+  {
+    "id": "mutation_rejection_clear_session",
+    "category": "mutation_rejection",
+    "inputs": {
+      "intent": "Permanently clear every saved cooking session",
+      "context": "",
+      "canvas_state": {"active": {}, "staged": {}},
+      "script": {
+        "initial_reply": "I can help with cooking guidance, but I can’t wipe saved sessions from here.",
+        "rounds": [{"type": "assistant", "text": ""}]
+      }
+    },
+    "expected": {"tool_names": [], "max_tts_words": 40, "requires_canvas": false}
+  },
+  {
+    "id": "mutation_rejection_update_catalog",
+    "category": "mutation_rejection",
+    "inputs": {
+      "intent": "Rename every taco recipe to deluxe tacos",
+      "context": "",
+      "canvas_state": {"active": {}, "staged": {}},
+      "script": {
+        "initial_reply": "I can help you cook, but I can’t bulk-edit the recipe catalog here.",
+        "rounds": [{"type": "assistant", "text": ""}]
+      }
+    },
+    "expected": {"tool_names": [], "max_tts_words": 40, "requires_canvas": false}
+  },
+  {
+    "id": "proactive_wait_pasta",
+    "category": "proactive_suggestion",
+    "inputs": {
+      "intent": "What should I do while this simmers?",
+      "context": "Recipe: Pasta Sauce. Step 4 of 6",
+      "canvas_state": {"active": {}, "staged": {}},
+      "script": {
+        "initial_reply": "I’ll surface a quick suggestion for the wait time.",
+        "rounds": [
+          {"type": "tool", "tool_name": "render_canvas", "args": {"intent": "show a simmer suggestion and timer"}},
+          {"type": "assistant", "text": "I added a suggestion and timer for the simmer window."}
+        ],
+        "render_stream": [
+          {"op": "add", "id": "suggestion-pasta", "type": "suggestion", "data": {"heading": "While you wait", "body": "Chop the basil and grate the cheese."}},
+          {"op": "add", "id": "timer-pasta", "type": "timer", "data": {"duration_seconds": 300, "label": "Simmer", "auto_start": true}}
+        ]
+      }
+    },
+    "expected": {"tool_names": ["render_canvas"], "max_tts_words": 40, "requires_canvas": true}
+  },
+  {
+    "id": "proactive_wait_rice",
+    "category": "proactive_suggestion",
+    "inputs": {
+      "intent": "What can I prep while the rice cooks?",
+      "context": "Recipe: Rice Bowl. Step 3 of 5",
+      "canvas_state": {"active": {}, "staged": {}},
+      "script": {
+        "initial_reply": "I’m adding a prep suggestion for the rice window.",
+        "rounds": [
+          {"type": "tool", "tool_name": "render_canvas", "args": {"intent": "show prep suggestion during rice cook"}},
+          {"type": "assistant", "text": "I put the wait-time suggestion on the canvas."}
+        ],
+        "render_stream": [
+          {"op": "add", "id": "suggestion-rice", "type": "suggestion", "data": {"heading": "While the rice cooks", "body": "Slice the cucumbers and mix the sauce."}},
+          {"op": "add", "id": "timer-rice", "type": "timer", "data": {"duration_seconds": 600, "label": "Rice", "auto_start": true}}
+        ]
+      }
+    },
+    "expected": {"tool_names": ["render_canvas"], "max_tts_words": 40, "requires_canvas": true}
+  },
+  {
+    "id": "proactive_wait_bread",
+    "category": "proactive_suggestion",
+    "inputs": {
+      "intent": "Give me something useful during the rest period",
+      "context": "Recipe: Flatbread. Step 2 of 4",
+      "canvas_state": {"active": {}, "staged": {}},
+      "script": {
+        "initial_reply": "I’m adding a quick task for the rest period.",
+        "rounds": [
+          {"type": "tool", "tool_name": "render_canvas", "args": {"intent": "show rest-period suggestion and timer"}},
+          {"type": "assistant", "text": "The rest-period helper is on the canvas now."}
+        ],
+        "render_stream": [
+          {"op": "add", "id": "suggestion-bread", "type": "suggestion", "data": {"heading": "Use the downtime", "body": "Dust the board and warm the skillet."}},
+          {"op": "add", "id": "timer-bread", "type": "timer", "data": {"duration_seconds": 900, "label": "Dough rest", "auto_start": true}}
+        ]
+      }
+    },
+    "expected": {"tool_names": ["render_canvas"], "max_tts_words": 40, "requires_canvas": true}
+  },
+  {
+    "id": "proactive_wait_braisesauce",
+    "category": "proactive_suggestion",
+    "inputs": {
+      "intent": "Show me a good use of this 10 minute wait",
+      "context": "Recipe: Braised Sauce. Step 5 of 7",
+      "canvas_state": {"active": {}, "staged": {}},
+      "script": {
+        "initial_reply": "I’m putting a wait-time suggestion on screen.",
+        "rounds": [
+          {"type": "tool", "tool_name": "render_canvas", "args": {"intent": "show sauce wait suggestion"}},
+          {"type": "assistant", "text": "I added a suggestion for the wait window."}
+        ],
+        "render_stream": [
+          {"op": "add", "id": "suggestion-braise", "type": "suggestion", "data": {"heading": "During the simmer", "body": "Taste the seasoning and set the table."}},
+          {"op": "add", "id": "timer-braise", "type": "timer", "data": {"duration_seconds": 600, "label": "Sauce simmer", "auto_start": true}}
+        ]
+      }
+    },
+    "expected": {"tool_names": ["render_canvas"], "max_tts_words": 40, "requires_canvas": true}
+  },
+  {
+    "id": "unrelated_weather",
+    "category": "unrelated_question",
+    "inputs": {
+      "intent": "What is the weather tomorrow?",
+      "context": "",
+      "canvas_state": {"active": {}, "staged": {}},
+      "script": {
+        "initial_reply": "I’m focused on the cooking session, so I can’t answer weather questions here.",
+        "rounds": [{"type": "assistant", "text": ""}]
+      }
+    },
+    "expected": {"tool_names": [], "max_tts_words": 40, "requires_canvas": false}
+  },
+  {
+    "id": "unrelated_stock",
+    "category": "unrelated_question",
+    "inputs": {
+      "intent": "How is the stock market doing today?",
+      "context": "",
+      "canvas_state": {"active": {}, "staged": {}},
+      "script": {
+        "initial_reply": "I can help with your cook flow, but I can’t answer market questions here.",
+        "rounds": [{"type": "assistant", "text": ""}]
+      }
+    },
+    "expected": {"tool_names": [], "max_tts_words": 40, "requires_canvas": false}
+  },
+  {
+    "id": "unrelated_poem",
+    "category": "unrelated_question",
+    "inputs": {
+      "intent": "Write me a poem about spring",
+      "context": "",
+      "canvas_state": {"active": {}, "staged": {}},
+      "script": {
+        "initial_reply": "I’m here for cooking help, so I can’t switch into general writing mode here.",
+        "rounds": [{"type": "assistant", "text": ""}]
+      }
+    },
+    "expected": {"tool_names": [], "max_tts_words": 40, "requires_canvas": false}
+  },
+  {
+    "id": "unrelated_history",
+    "category": "unrelated_question",
+    "inputs": {
+      "intent": "Who was the first emperor of Rome?",
+      "context": "",
+      "canvas_state": {"active": {}, "staged": {}},
+      "script": {
+        "initial_reply": "I’m scoped to the cooking session, so I can’t answer history questions here.",
+        "rounds": [{"type": "assistant", "text": ""}]
+      }
+    },
+    "expected": {"tool_names": [], "max_tts_words": 40, "requires_canvas": false}
+  },
+  {
+    "id": "multi_intent_pasta_show_options",
+    "category": "multi_intent",
+    "inputs": {
+      "intent": "Find me pasta options and show them on screen",
+      "context": "",
+      "canvas_state": {"active": {}, "staged": {}},
+      "script": {
+        "initial_reply": "I’m finding pasta options and getting them onto the canvas.",
+        "rounds": [
+          {"type": "tool", "tool_name": "find_recipes", "args": {"query": "pasta options"}},
+          {"type": "tool", "tool_name": "render_canvas", "args": {"intent": "show pasta recipe options"}},
+          {"type": "assistant", "text": "The pasta options are ready to pick from."}
+        ],
+        "find_recipes_result": {"recipes": [{"title": "Weeknight Pasta"}, {"title": "Creamy Pasta"}]},
+        "render_stream": [
+          {"op": "add", "id": "pasta-grid", "type": "recipe-grid", "data": {}},
+          {"op": "add", "id": "pasta-opt-1", "type": "recipe-option", "parent": "pasta-grid", "data": {"title": "Weeknight Pasta", "action": "select_pasta_1"}},
+          {"op": "add", "id": "pasta-opt-2", "type": "recipe-option", "parent": "pasta-grid", "data": {"title": "Creamy Pasta", "action": "select_pasta_2"}}
+        ]
+      }
+    },
+    "expected": {"tool_names": ["find_recipes", "render_canvas"], "max_tts_words": 40, "requires_canvas": true}
+  },
+  {
+    "id": "multi_intent_tacos_show_options",
+    "category": "multi_intent",
+    "inputs": {
+      "intent": "Look up taco recipes and render choices",
+      "context": "",
+      "canvas_state": {"active": {}, "staged": {}},
+      "script": {
+        "initial_reply": "I’m pulling taco recipes and rendering the choices.",
+        "rounds": [
+          {"type": "tool", "tool_name": "find_recipes", "args": {"query": "taco recipes"}},
+          {"type": "tool", "tool_name": "render_canvas", "args": {"intent": "show taco recipe options"}},
+          {"type": "assistant", "text": "The taco choices are up on the canvas."}
+        ],
+        "find_recipes_result": {"recipes": [{"title": "Black Bean Tacos"}, {"title": "Mushroom Tacos"}]},
+        "render_stream": [
+          {"op": "add", "id": "taco-grid", "type": "recipe-grid", "data": {}},
+          {"op": "add", "id": "taco-opt-1", "type": "recipe-option", "parent": "taco-grid", "data": {"title": "Black Bean Tacos", "action": "select_taco_1"}},
+          {"op": "add", "id": "taco-opt-2", "type": "recipe-option", "parent": "taco-grid", "data": {"title": "Mushroom Tacos", "action": "select_taco_2"}}
+        ]
+      }
+    },
+    "expected": {"tool_names": ["find_recipes", "render_canvas"], "max_tts_words": 40, "requires_canvas": true}
+  },
+  {
+    "id": "multi_intent_soup_show_options",
+    "category": "multi_intent",
+    "inputs": {
+      "intent": "Find soup recipes and put the options on screen",
+      "context": "",
+      "canvas_state": {"active": {}, "staged": {}},
+      "script": {
+        "initial_reply": "I’m finding soup recipes and preparing the canvas.",
+        "rounds": [
+          {"type": "tool", "tool_name": "find_recipes", "args": {"query": "soup recipes"}},
+          {"type": "tool", "tool_name": "render_canvas", "args": {"intent": "show soup recipe options"}},
+          {"type": "assistant", "text": "The soup options are ready on screen."}
+        ],
+        "find_recipes_result": {"recipes": [{"title": "Tomato Soup"}, {"title": "Lentil Soup"}]},
+        "render_stream": [
+          {"op": "add", "id": "soup-grid", "type": "recipe-grid", "data": {}},
+          {"op": "add", "id": "soup-opt-1", "type": "recipe-option", "parent": "soup-grid", "data": {"title": "Tomato Soup", "action": "select_soup_1"}},
+          {"op": "add", "id": "soup-opt-2", "type": "recipe-option", "parent": "soup-grid", "data": {"title": "Lentil Soup", "action": "select_soup_2"}}
+        ]
+      }
+    },
+    "expected": {"tool_names": ["find_recipes", "render_canvas"], "max_tts_words": 40, "requires_canvas": true}
+  },
+  {
+    "id": "multi_intent_breakfast_show_options",
+    "category": "multi_intent",
+    "inputs": {
+      "intent": "Find breakfast ideas and display the best ones",
+      "context": "",
+      "canvas_state": {"active": {}, "staged": {}},
+      "script": {
+        "initial_reply": "I’m finding breakfast ideas and showing the best options.",
+        "rounds": [
+          {"type": "tool", "tool_name": "find_recipes", "args": {"query": "breakfast ideas"}},
+          {"type": "tool", "tool_name": "render_canvas", "args": {"intent": "show breakfast recipe options"}},
+          {"type": "assistant", "text": "The breakfast options are ready on the canvas."}
+        ],
+        "find_recipes_result": {"recipes": [{"title": "Spinach Omelet"}, {"title": "Berry Oatmeal"}]},
+        "render_stream": [
+          {"op": "add", "id": "breakfast-grid", "type": "recipe-grid", "data": {}},
+          {"op": "add", "id": "breakfast-opt-1", "type": "recipe-option", "parent": "breakfast-grid", "data": {"title": "Spinach Omelet", "action": "select_breakfast_1"}},
+          {"op": "add", "id": "breakfast-opt-2", "type": "recipe-option", "parent": "breakfast-grid", "data": {"title": "Berry Oatmeal", "action": "select_breakfast_2"}}
+        ]
+      }
+    },
+    "expected": {"tool_names": ["find_recipes", "render_canvas"], "max_tts_words": 40, "requires_canvas": true}
+  }
+]

@@ -1,15 +1,13 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any, List
-from unittest.mock import AsyncMock, MagicMock, patch
+from typing import Any
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from packages.agents.main_assistant import AgentState, run_main_assistant
+from packages.agents.main_assistant import stream_main_assistant
 
-
-# ─── Mock LLM helpers ─────────────────────────────────────────────────────────
 
 def _make_tool_call_msg(tool_name: str, args: dict, call_id: str = "tc1"):
     from langchain_core.messages import AIMessage
@@ -25,10 +23,10 @@ def _make_text_msg(text: str):
 
 
 class _SequenceLLM:
-    """Mock LLM that returns a predefined sequence of responses."""
-    def __init__(self, responses: list) -> None:
+    def __init__(self, responses: list, stream_text: str = "") -> None:
         self._responses = list(responses)
         self._idx = 0
+        self._stream_text = stream_text
 
     def bind_tools(self, tools):
         return self
@@ -36,16 +34,10 @@ class _SequenceLLM:
     async def ainvoke(self, messages) -> Any:
         if self._idx >= len(self._responses):
             from langchain_core.messages import AIMessage
-            return AIMessage(content="Done.")
+            return AIMessage(content="")
         resp = self._responses[self._idx]
         self._idx += 1
         return resp
-
-
-class _ToolThenStreamLLM(_SequenceLLM):
-    def __init__(self, responses: list, stream_text: str) -> None:
-        super().__init__(responses)
-        self._stream_text = stream_text
 
     async def astream(self, messages, **kwargs):
         chunk = MagicMock()
@@ -53,119 +45,50 @@ class _ToolThenStreamLLM(_SequenceLLM):
         yield chunk
 
 
-# ─── Tests ────────────────────────────────────────────────────────────────────
-
 @pytest.mark.asyncio
-async def test_plain_text_response_sets_tts_text():
-    llm = _SequenceLLM([_make_text_msg("Looks perfect, let's go!")])
-    result = await run_main_assistant("how am I doing?", "Step 3", {}, llm)  # type: ignore[arg-type]
-
-    assert result["tts_text"] == "Looks perfect, let's go!"
-    assert result["canvas_ops"] == []
-
-
-@pytest.mark.asyncio
-async def test_render_canvas_tool_call_populates_ops():
-    fake_ops = [{"op": "add", "id": "s1", "type": "step-view", "data": {
-        "step_number": 1, "total_steps": 3, "recipe": "Test", "instruction": "Boil water"
-    }}]
-
-    render_result = {"ops": fake_ops, "errors": []}
-
-    llm = _SequenceLLM([
-        _make_tool_call_msg("render_canvas", {"intent": "show step 1"}),
-        _make_text_msg("Step one, here we go!"),
-    ])
-
-    with patch("packages.agents.main_assistant.graph.MainAssistantGraph._run_render_agent", new=AsyncMock(return_value=render_result)):
-        result = await run_main_assistant("next step", "Recipe: Pasta", {}, llm)  # type: ignore[arg-type]
-
-    assert result["canvas_ops"] == fake_ops
-    assert result["tts_text"] == "Step one, here we go!"
-
-
-@pytest.mark.asyncio
-async def test_graceful_degradation_when_render_fails():
-    llm = _SequenceLLM([
-        _make_tool_call_msg("render_canvas", {"intent": "show step"}),
-        _make_text_msg("Oops, let me try again."),
-    ])
-
-    async def _fail(*args, **kwargs):
-        raise RuntimeError("LLM timeout")
-
-    with patch("packages.agents.main_assistant.graph.MainAssistantGraph._run_render_agent", new=_fail):
-        result = await run_main_assistant("next step", "", {}, llm)  # type: ignore[arg-type]
-
-    assert result["canvas_ops"] == []
-    assert result["tts_text"] == "Oops, let me try again."
-
-
-@pytest.mark.asyncio
-async def test_fallback_tts_when_all_messages_fail():
-    llm = _SequenceLLM([
-        _make_tool_call_msg("render_canvas", {"intent": "show step"}),
-        _make_text_msg(""),  # empty content — should trigger fallback
-    ])
-
-    async def _fail(*args, **kwargs):
-        raise RuntimeError("error")
-
-    with patch("packages.agents.main_assistant.graph.MainAssistantGraph._run_render_agent", new=_fail):
-        result = await run_main_assistant("next step", "", {}, llm)  # type: ignore[arg-type]
-
-    assert "try" in result["tts_text"].lower() or result["tts_text"] != ""
-
-
-@pytest.mark.asyncio
-async def test_find_recipes_stub_returns_empty():
-    llm = _SequenceLLM([
-        _make_tool_call_msg("find_recipes", {"query": "pasta"}),
-        _make_text_msg("Here are some pasta recipes!"),
-    ])
-    result = await run_main_assistant("show me pasta recipes", "", {}, llm)  # type: ignore[arg-type]
-
-    assert result["canvas_ops"] == []
-    assert result["tts_text"] == "Here are some pasta recipes!"
-
-
-@pytest.mark.asyncio
-async def test_completes_within_latency_budget():
-    """Tool calls with mocks should finish well under 4 seconds."""
-    llm = _SequenceLLM([_make_text_msg("Done!")])
-    result = await asyncio.wait_for(
-        run_main_assistant("hello", "", {}, llm),  # type: ignore[arg-type]
-        timeout=4.0,
-    )
-    assert result["tts_text"] == "Done!"
-
-
-@pytest.mark.asyncio
-async def test_canvas_state_passed_to_render_agent():
-    canvas = {"active": {"s1": {"type": "step-view", "data": {}}}, "staged": {}}
-    captured: list = []
-
-    async def _capture(self, intent: str, state: AgentState):
-        captured.append(state["canvas_state"])
-        return {"ops": [], "errors": []}
-
-    llm = _SequenceLLM([
-        _make_tool_call_msg("render_canvas", {"intent": "update step"}),
-        _make_text_msg("Updated!"),
-    ])
-
-    with patch("packages.agents.main_assistant.graph.MainAssistantGraph._run_render_agent", new=_capture):
-        await run_main_assistant("update", "context", canvas, llm)  # type: ignore[arg-type]
-
-    assert captured[0] == canvas
-
-
-@pytest.mark.asyncio
-async def test_render_canvas_repairs_orphaned_recipe_options():
-    llm = _ToolThenStreamLLM(
+async def test_initial_reply_emits_before_streamed_canvas_ops():
+    llm = _SequenceLLM(
         [
+            _make_text_msg("On it."),
+            _make_tool_call_msg("render_canvas", {"intent": "show step 1"}),
+            _make_text_msg("Step one, here we go!"),
+        ],
+        (
+            '{"op":"add","id":"step-1","type":"step-view","data":{"step_number":1,"total_steps":3,"recipe":"Test","instruction":"Boil water"}}\n'
+        ),
+    )
+
+    events = [e async for e in stream_main_assistant("next step", "Recipe: Pasta", {}, llm)]  # type: ignore[arg-type]
+
+    assistant_events = [e for e in events if e["type"] == "assistant_message"]
+    canvas_events = [e for e in events if e["type"] == "canvas_op"]
+
+    assert assistant_events[0]["text"] == "On it."
+    assert canvas_events[0]["op"]["id"] == "step-1"
+    assert events.index(assistant_events[0]) < events.index(canvas_events[0])
+    assert assistant_events[-1]["text"] == "Step one, here we go!"
+
+
+@pytest.mark.asyncio
+async def test_empty_initial_reply_uses_default_message():
+    llm = _SequenceLLM([
+        _make_text_msg(""),
+        _make_text_msg(""),
+    ])
+
+    events = [e async for e in stream_main_assistant("how am I doing?", "Step 3", {}, llm)]  # type: ignore[arg-type]
+
+    first_reply = next(e for e in events if e["type"] == "assistant_message")
+    assert first_reply["text"] == "One sec, I'm on it."
+
+
+@pytest.mark.asyncio
+async def test_render_canvas_streams_repaired_recipe_grid_before_options():
+    llm = _SequenceLLM(
+        [
+            _make_text_msg("Let's pick something good."),
             _make_tool_call_msg("render_canvas", {"intent": "show recipe suggestions"}),
-            _make_text_msg("Pick one and let's get cooking."),
+            _make_text_msg(""),
         ],
         (
             '{"op":"add","id":"veg-opt-1","type":"recipe-option","parent":"veg-grid","data":{"title":"Classic Vegetable Fried Rice","action":"select_veg_opt_1"}}\n'
@@ -173,8 +96,59 @@ async def test_render_canvas_repairs_orphaned_recipe_options():
         ),
     )
 
-    result = await run_main_assistant("show recipes", "", {}, llm)  # type: ignore[arg-type]
+    events = [e async for e in stream_main_assistant("show recipes", "", {}, llm)]  # type: ignore[arg-type]
+    canvas_ids = [e["op"]["id"] for e in events if e["type"] == "canvas_op" and e["op"]["op"] != "skeleton"]
 
-    assert result["canvas_ops"][0] == {"op": "add", "id": "veg-grid", "type": "recipe-grid", "data": {}}
-    assert [op["id"] for op in result["canvas_ops"][1:]] == ["veg-opt-1", "veg-opt-2"]
-    assert result["tts_text"] == "Pick one and let's get cooking."
+    assert canvas_ids == ["veg-grid", "veg-opt-1", "veg-opt-2"]
+
+
+@pytest.mark.asyncio
+async def test_find_recipes_can_emit_material_follow_up():
+    llm = _SequenceLLM([
+        _make_text_msg("On it."),
+        _make_tool_call_msg("find_recipes", {"query": "pasta"}),
+        _make_text_msg("Here are some pasta ideas."),
+    ])
+
+    events = [e async for e in stream_main_assistant("show me pasta recipes", "", {}, llm)]  # type: ignore[arg-type]
+    assistant_texts = [e["text"] for e in events if e["type"] == "assistant_message"]
+
+    assert assistant_texts == ["On it.", "Here are some pasta ideas."]
+
+
+@pytest.mark.asyncio
+async def test_render_failures_emit_fallback_follow_up():
+    llm = _SequenceLLM([
+        _make_text_msg("On it."),
+        _make_tool_call_msg("render_canvas", {"intent": "show step"}),
+        _make_text_msg(""),
+    ])
+
+    async def _fail(*args, **kwargs):
+        raise RuntimeError("LLM timeout")
+        yield  # pragma: no cover
+
+    with patch("packages.agents.main_assistant.graph.astream_canvas_ops", _fail):
+        events = [e async for e in stream_main_assistant("next step", "", {}, llm)]  # type: ignore[arg-type]
+
+    assistant_texts = [e["text"] for e in events if e["type"] == "assistant_message"]
+    assert assistant_texts[-1] == "Hmm, something went sideways. Let me try that another way."
+
+
+@pytest.mark.asyncio
+async def test_completes_within_latency_budget():
+    llm = _SequenceLLM([
+        _make_text_msg("Done!"),
+        _make_text_msg(""),
+    ])
+
+    events = await asyncio.wait_for(
+        asyncio.create_task(_collect_events("hello", "", {}, llm)),
+        timeout=4.0,
+    )
+
+    assert any(event["type"] == "turn_complete" for event in events)
+
+
+async def _collect_events(intent: str, context: str, canvas_state: dict, llm: Any):
+    return [e async for e in stream_main_assistant(intent, context, canvas_state, llm)]  # type: ignore[arg-type]

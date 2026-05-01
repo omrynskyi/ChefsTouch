@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from typing import Any, Awaitable, Callable, Dict, Optional
+from typing import AsyncGenerator
 
 from langchain_core.language_models import BaseChatModel
 
 from apps.api.app.models import SessionContext
-from packages.agents.main_assistant import run_main_assistant
-
-StatusCallback = Optional[Callable[[str], Awaitable[None]]]
+from packages.agents.langsmith_utils import summarize_canvas_state
+from packages.agents.main_assistant import MainAssistantEvent, stream_main_assistant
 
 
 async def run_agent_turn(
@@ -15,12 +14,22 @@ async def run_agent_turn(
     context: str,
     session: SessionContext,
     llm: BaseChatModel,
-    on_status: StatusCallback = None,
-) -> Dict[str, Any]:
-    return await run_main_assistant(
+    *,
+    turn_id: str,
+    source: str = "websocket",
+) -> AsyncGenerator[MainAssistantEvent, None]:
+    async for event in stream_main_assistant(
         intent=action,
         context=context,
         canvas_state=session.canvas_state,
         llm=llm,
-        on_status=on_status,
-    )
+        tracking_context={
+            "session_id": session.session_id,
+            "turn_id": turn_id,
+            "source": source,
+            "active_recipe": session.active_recipe.title if session.active_recipe else None,
+            "current_step": session.current_step,
+            "canvas_state": summarize_canvas_state(session.canvas_state),
+        },
+    ):
+        yield event

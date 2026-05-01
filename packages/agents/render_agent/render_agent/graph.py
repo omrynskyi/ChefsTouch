@@ -4,10 +4,15 @@ from typing import Any, AsyncGenerator, Dict, List, Optional, Union
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
+from langsmith.run_helpers import trace
 
+from packages.agents.langsmith_utils import summarize_canvas_state
 from .healer import ContentEvent, JSONStreamHealer, SkeletonEvent
 from .prompts import AGENT_SYSTEM_PROMPT
 from .schemas import CanvasOp, VALID_TYPES
+
+_RESERVED_POSITION = "corner-tl"
+_SUPPRESSED_SKELETON_TYPES = {"recipe-option"}
 
 
 def _canvas_summary(canvas_state: Dict[str, Any]) -> str:
@@ -43,58 +48,78 @@ def _component_type(entry: Any) -> Optional[str]:
     return None
 
 
-def _repair_recipe_option_ops(ops: List[dict], canvas_state: Dict[str, Any]) -> tuple[List[dict], List[str]]:
+def _known_component_types(canvas_state: Dict[str, Any]) -> Dict[str, Optional[str]]:
     active, staged = _canvas_layers(canvas_state)
-
-    existing_types: Dict[str, Optional[str]] = {}
+    known: Dict[str, Optional[str]] = {}
     for layer in (active, staged):
         if isinstance(layer, dict):
             for comp_id, entry in layer.items():
-                existing_types[comp_id] = _component_type(entry)
+                known[comp_id] = _component_type(entry)
+    return known
 
-    batch_types = {
-        op["id"]: op["type"]
-        for op in ops
-        if op.get("op") in {"add", "stage"} and isinstance(op.get("id"), str) and isinstance(op.get("type"), str)
-    }
 
+def _uses_reserved_surface(op: dict) -> bool:
+    if op.get("type") == "assistant-message":
+        return True
+    if op.get("position") == _RESERVED_POSITION:
+        return True
+    return False
+
+
+def _repair_recipe_option_ops(ops: List[dict], canvas_state: Dict[str, Any]) -> tuple[List[dict], List[str]]:
+    existing_types = _known_component_types(canvas_state)
     repaired: List[dict] = []
     errors: List[str] = []
-    synthesized_parents: set[str] = set()
 
     for op in ops:
-        if op.get("op") not in {"add", "stage"} or op.get("type") != "recipe-option":
-            repaired.append(op)
-            continue
-
-        parent_id = op.get("parent")
-        if not isinstance(parent_id, str):
-            repaired.append(op)
-            continue
-
-        existing_parent_type = existing_types.get(parent_id)
-        batch_parent_type = batch_types.get(parent_id)
-
-        if existing_parent_type and existing_parent_type != "recipe-grid":
-            errors.append(
-                f"Dropped recipe-option '{op['id']}' because parent '{parent_id}' exists as '{existing_parent_type}'."
-            )
-            continue
-
-        if batch_parent_type and batch_parent_type != "recipe-grid":
-            errors.append(
-                f"Dropped recipe-option '{op['id']}' because parent '{parent_id}' is emitted as '{batch_parent_type}' in the same batch."
-            )
-            continue
-
-        parent_exists = existing_parent_type == "recipe-grid" or batch_parent_type == "recipe-grid"
-        if not parent_exists and parent_id not in synthesized_parents:
-            repaired.append({"op": "add", "id": parent_id, "type": "recipe-grid", "data": {}})
-            synthesized_parents.add(parent_id)
-
-        repaired.append(op)
+        for streamed_op in _stream_repaired_ops(op, existing_types):
+            if streamed_op.get("_dropped"):
+                errors.append(streamed_op["_dropped"])
+                continue
+            repaired.append(streamed_op)
 
     return repaired, errors
+
+
+def _stream_repaired_ops(op: dict, known_types: Dict[str, Optional[str]]) -> List[dict]:
+    if _uses_reserved_surface(op):
+        return []
+
+    op_type = op.get("op")
+    comp_id = op.get("id")
+    comp_type = op.get("type")
+
+    if op_type in {"add", "stage"} and comp_type == "recipe-option":
+        parent_id = op.get("parent")
+        if not isinstance(parent_id, str):
+            return [op]
+
+        parent_type = known_types.get(parent_id)
+        if parent_type and parent_type != "recipe-grid":
+            return [{
+                "_dropped": (
+                    f"Dropped recipe-option '{comp_id}' because parent "
+                    f"'{parent_id}' exists as '{parent_type}'."
+                )
+            }]
+
+        emitted: List[dict] = []
+        if parent_type != "recipe-grid":
+            parent_op = {"op": "add", "id": parent_id, "type": "recipe-grid", "data": {}}
+            emitted.append(parent_op)
+            known_types[parent_id] = "recipe-grid"
+
+        emitted.append(op)
+        if isinstance(comp_id, str):
+            known_types[comp_id] = "recipe-option"
+        return emitted
+
+    if op_type in {"add", "stage"} and isinstance(comp_id, str) and isinstance(comp_type, str):
+        known_types[comp_id] = comp_type
+    elif op_type == "remove" and isinstance(comp_id, str):
+        known_types.pop(comp_id, None)
+
+    return [op]
 
 
 async def astream_events(
@@ -107,8 +132,8 @@ async def astream_events(
     Stream SkeletonEvent and ContentEvent as the LLM generates JSONL ops.
 
     SkeletonEvents fire as soon as "type" and "id" are visible in the partial
-    buffer, before the full op object closes.  ContentEvents carry a validated
-    CanvasOp dict and fire when the object closes.  Invalid ops are dropped
+    buffer, before the full op object closes. ContentEvents carry a validated
+    CanvasOp dict and fire when the object closes. Invalid ops are dropped
     silently.
     """
     system = AGENT_SYSTEM_PROMPT.format(canvas_state=_canvas_summary(canvas_state))
@@ -136,8 +161,57 @@ async def astream_events(
                 yield ContentEvent(op=validated)
 
 
+async def astream_canvas_ops(
+    intent: str,
+    context: str,
+    canvas_state: Dict[str, Any],
+    llm: BaseChatModel,
+) -> AsyncGenerator[dict, None]:
+    known_types = _known_component_types(canvas_state)
+    skeleton_count = 0
+    content_count = 0
+    reserved_surface_drops = 0
+    recipe_grid_repairs = 0
+
+    with trace(
+        "render_agent.stream",
+        run_type="chain",
+        inputs={
+            "intent": intent,
+            "context": context,
+            "canvas_state": summarize_canvas_state(canvas_state),
+        },
+        tags=["pair-cooking", "render-agent", "streaming"],
+    ) as render_run:
+        async for event in astream_events(intent, context, canvas_state, llm):
+            if isinstance(event, SkeletonEvent):
+                if event.component_type in _SUPPRESSED_SKELETON_TYPES:
+                    continue
+                skeleton_count += 1
+                yield {"op": "skeleton", "id": event.id, "type": event.component_type}
+                continue
+
+            for op in _stream_repaired_ops(event.op, known_types):
+                if "_dropped" in op:
+                    reserved_surface_drops += 1
+                    continue
+                if op.get("type") == "recipe-grid" and op.get("op") == "add" and op.get("data") == {}:
+                    recipe_grid_repairs += 1
+                content_count += 1
+                yield op
+
+        render_run.end(
+            outputs={
+                "skeleton_count": skeleton_count,
+                "content_count": content_count,
+                "reserved_surface_drops": reserved_surface_drops,
+                "recipe_grid_repairs": recipe_grid_repairs,
+            }
+        )
+
+
 class _RenderGraph:
-    """Non-streaming wrapper around astream_events for batch invocation."""
+    """Non-streaming wrapper around astream_canvas_ops for batch invocation."""
 
     def __init__(self, llm: BaseChatModel) -> None:
         self._llm = llm

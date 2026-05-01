@@ -92,6 +92,18 @@ describe("Canvas", () => {
     expect(container).toMatchSnapshot();
   });
 
+  it("renders assistant-message in corner-tl", () => {
+    const state = activeState(["sys-assistant-message", {
+      id: "sys-assistant-message",
+      type: "assistant-message",
+      data: { text: "One sec, I'm on it." },
+    }]);
+    const { container } = renderCanvas(state);
+    const zone = container.querySelector('[zone="corner-tl"]');
+    expect(zone!.textContent).toContain("One sec, I'm on it.");
+    expect(container).toMatchSnapshot();
+  });
+
   it("renders suggestion in bottom zone", () => {
     const state = activeState(["s1", { id: "s1", type: "suggestion", data: { heading: "While you wait", body: "Chop the garlic.", action_label: "Got it" } }]);
     const { container } = renderCanvas(state);

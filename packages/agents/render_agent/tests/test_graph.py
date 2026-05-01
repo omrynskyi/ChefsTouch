@@ -10,6 +10,7 @@ from packages.agents.render_agent import (
     ContentEvent,
     JSONStreamHealer,
     SkeletonEvent,
+    astream_canvas_ops,
     astream_events,
     build_canvas_render_graph,
 )
@@ -236,6 +237,32 @@ async def test_astream_events_update_and_remove():
     content = [e for e in events if isinstance(e, ContentEvent)]
     assert content[0].op == {"op": "update", "id": "step-1", "data": {"instruction": "Updated"}}
     assert content[1].op == {"op": "remove", "id": "timer-1"}
+
+
+@pytest.mark.asyncio
+async def test_astream_canvas_ops_suppresses_recipe_option_skeletons():
+    stream = (
+        '{"op":"add","id":"veg-opt-1","type":"recipe-option","parent":"veg-grid","data":{"title":"Classic Vegetable Fried Rice","action":"select_veg_opt_1"}}\n'
+    )
+    llm = make_chunked_llm(list(stream))
+    ops = [op async for op in astream_canvas_ops("show recipes", "", {}, llm)]
+
+    assert all(not (op["op"] == "skeleton" and op["type"] == "recipe-option") for op in ops)
+    assert ops[0] == {"op": "add", "id": "veg-grid", "type": "recipe-grid", "data": {}}
+    assert ops[1]["id"] == "veg-opt-1"
+
+
+@pytest.mark.asyncio
+async def test_astream_canvas_ops_drops_reserved_corner_tl_ops():
+    stream = (
+        '{"op":"add","id":"timer-1","type":"timer","position":"corner-tl","data":{"duration_seconds":30,"label":"Wait","auto_start":true}}\n'
+        '{"op":"add","id":"timer-2","type":"timer","position":"corner-br","data":{"duration_seconds":30,"label":"Wait","auto_start":true}}\n'
+    )
+    llm = make_llm(stream)
+    ops = [op async for op in astream_canvas_ops("timers", "", {}, llm)]
+    content_ids = [op["id"] for op in ops if op["op"] != "skeleton"]
+
+    assert content_ids == ["timer-2"]
 
 
 # ---------------------------------------------------------------------------
