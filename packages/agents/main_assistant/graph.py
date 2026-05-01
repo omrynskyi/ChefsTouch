@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import uuid
 from typing import Any, AsyncGenerator, Dict, List, Literal, Optional, TypedDict
 
 from langchain_core.language_models import BaseChatModel
@@ -24,6 +25,7 @@ ASSISTANT_MESSAGE_ID = "sys-assistant-message"
 _DEFAULT_INITIAL_REPLY = "One sec, I'm on it."
 _FALLBACK_FAILURE_REPLY = "Hmm, something went sideways. Let me try that another way."
 _MAX_TOOL_ROUNDS = 4
+_MAX_MEMORY_TURNS = 20
 
 _TOOL_SCHEMAS = [
     {
@@ -81,11 +83,26 @@ _TOOL_STATUS: Dict[str, str] = {
 
 
 class MainAssistantEvent(TypedDict, total=False):
-    type: Literal["assistant_message", "canvas_op", "status", "turn_complete", "tool_call"]
+    type: Literal[
+        "speech_commit",
+        "canvas_op",
+        "status",
+        "tool_call",
+        "tool_started",
+        "tool_result",
+        "tool_failed",
+        "turn_completed",
+    ]
     text: str
     op: dict
     tool_name: str
     tool_args: dict[str, Any]
+    tool_call_id: str
+    summary: str
+    error: str
+    message_id: str
+    turn_id: str
+    generation_id: int
 
 
 class MainAssistantGraph:
@@ -98,12 +115,25 @@ class MainAssistantGraph:
         intent: str,
         context: str,
         canvas_state: Dict[str, Any],
+        conversation: Optional[List[dict[str, str]]] = None,
+        *,
+        turn_id: str,
+        generation_id: int,
     ) -> AsyncGenerator[MainAssistantEvent, None]:
         errors: List[str] = []
-        initial_reply = await self._generate_initial_reply(intent, context)
-        yield {"type": "assistant_message", "text": initial_reply}
+        history = _normalize_conversation(conversation, current_intent=intent)
+        initial_reply = await self._generate_initial_reply(intent, context, history)
+        yield {
+            "type": "speech_commit",
+            "text": initial_reply,
+            "message_id": str(uuid.uuid4()),
+            "turn_id": turn_id,
+            "generation_id": generation_id,
+        }
+        emitted_assistant_texts = [initial_reply]
 
         messages: List[Any] = [
+            *_history_messages(history),
             HumanMessage(content=intent),
             AIMessage(content=initial_reply),
         ]
@@ -111,7 +141,12 @@ class MainAssistantGraph:
         rounds = 0
         while rounds < _MAX_TOOL_ROUNDS:
             rounds += 1
-            yield {"type": "status", "text": "Thinking…"}
+            yield {
+                "type": "status",
+                "text": "Thinking…",
+                "turn_id": turn_id,
+                "generation_id": generation_id,
+            }
             try:
                 response = await self._plan_round(rounds, intent, context, messages)
             except Exception as exc:
@@ -127,8 +162,49 @@ class MainAssistantGraph:
                 tool_name = tc["name"]
                 tool_args = tc.get("args", {})
                 tool_id = tc.get("id", tool_name)
-                yield {"type": "tool_call", "tool_name": tool_name, "tool_args": tool_args}
-                yield {"type": "status", "text": _TOOL_STATUS.get(tool_name, f"Running {tool_name}…")}
+                yield {
+                    "type": "tool_call",
+                    "tool_name": tool_name,
+                    "tool_args": tool_args,
+                    "tool_call_id": tool_id,
+                    "turn_id": turn_id,
+                    "generation_id": generation_id,
+                }
+
+                if tool_name == "render_canvas":
+                    promoted_text = self._promote_render_intent_to_assistant_message(
+                        tool_args.get("intent", "")
+                    )
+                    if promoted_text:
+                        yield {
+                            "type": "speech_commit",
+                            "text": promoted_text,
+                            "message_id": str(uuid.uuid4()),
+                            "turn_id": turn_id,
+                            "generation_id": generation_id,
+                        }
+                        emitted_assistant_texts.append(promoted_text)
+                        messages.append(
+                            ToolMessage(
+                                content="Skipped render_canvas and promoted conversational intent to assistant message.",
+                                tool_call_id=tool_id,
+                            )
+                        )
+                        continue
+
+                yield {
+                    "type": "tool_started",
+                    "tool_name": tool_name,
+                    "tool_call_id": tool_id,
+                    "turn_id": turn_id,
+                    "generation_id": generation_id,
+                }
+                yield {
+                    "type": "status",
+                    "text": _TOOL_STATUS.get(tool_name, f"Running {tool_name}…"),
+                    "turn_id": turn_id,
+                    "generation_id": generation_id,
+                }
 
                 try:
                     result: dict[str, Any]
@@ -148,29 +224,68 @@ class MainAssistantGraph:
                                 self._base_llm,
                             ):
                                 streamed_ops += 1
-                                yield {"type": "canvas_op", "op": op}
+                                yield {
+                                    "type": "canvas_op",
+                                    "op": op,
+                                    "turn_id": turn_id,
+                                    "generation_id": generation_id,
+                                }
                             result = {"accepted": True, "streamed_ops": streamed_ops}
                         else:
                             result = await self._run_tool(tool_name, tool_args, context)
                         tool_run.end(outputs={"result": result})
 
                     messages.append(ToolMessage(content=str(result), tool_call_id=tool_id))
+                    yield {
+                        "type": "tool_result",
+                        "tool_name": tool_name,
+                        "tool_call_id": tool_id,
+                        "summary": _tool_summary(result),
+                        "turn_id": turn_id,
+                        "generation_id": generation_id,
+                    }
                 except Exception as exc:
                     error_msg = f"{tool_name} failed: {exc}"
                     logger.warning(error_msg)
                     errors.append(error_msg)
                     messages.append(ToolMessage(content=f"Error: {error_msg}", tool_call_id=tool_id))
+                    yield {
+                        "type": "tool_failed",
+                        "tool_name": tool_name,
+                        "tool_call_id": tool_id,
+                        "error": error_msg,
+                        "turn_id": turn_id,
+                        "generation_id": generation_id,
+                    }
 
-        follow_up = self._collect_follow_up(messages, initial_reply, errors)
+        follow_up = self._collect_follow_up(messages, emitted_assistant_texts, errors)
         if follow_up:
-            yield {"type": "assistant_message", "text": follow_up}
+            yield {
+                "type": "speech_commit",
+                "text": follow_up,
+                "message_id": str(uuid.uuid4()),
+                "turn_id": turn_id,
+                "generation_id": generation_id,
+            }
 
-        yield {"type": "turn_complete"}
+        yield {
+            "type": "turn_completed",
+            "turn_id": turn_id,
+            "generation_id": generation_id,
+        }
 
-    async def _generate_initial_reply(self, intent: str, context: str) -> str:
+    async def _generate_initial_reply(
+        self,
+        intent: str,
+        context: str,
+        history: List[dict[str, str]],
+    ) -> str:
+        history_text = _history_text(history)
         prompt = "\n".join(
             part for part in [
                 INITIAL_REPLY_PROMPT,
+                "Conversation memory from this session:" if history_text else "",
+                history_text,
                 f"User request: {intent}",
                 f"Context: {context}" if context else "",
             ] if part
@@ -236,7 +351,17 @@ class MainAssistantGraph:
 
         return {"error": f"Unknown tool: {name}"}
 
-    def _collect_follow_up(self, messages: List[Any], initial_reply: str, errors: List[str]) -> str:
+    def _collect_follow_up(
+        self,
+        messages: List[Any],
+        emitted_assistant_texts: List[str],
+        errors: List[str],
+    ) -> str:
+        normalized_emitted = {
+            " ".join(text.lower().split())
+            for text in emitted_assistant_texts
+            if text.strip()
+        }
         latest_text = ""
         for msg in reversed(messages):
             if isinstance(msg, AIMessage):
@@ -244,19 +369,58 @@ class MainAssistantGraph:
                 if latest_text:
                     break
 
-        if latest_text and self._is_material_follow_up(initial_reply, latest_text):
+        if latest_text and self._is_new_assistant_text(normalized_emitted, latest_text):
             return latest_text
 
-        if errors and self._is_material_follow_up(initial_reply, _FALLBACK_FAILURE_REPLY):
+        if errors and self._is_new_assistant_text(normalized_emitted, _FALLBACK_FAILURE_REPLY):
             return _FALLBACK_FAILURE_REPLY
 
         return ""
 
     @staticmethod
-    def _is_material_follow_up(initial_reply: str, candidate: str) -> bool:
-        normalized_initial = " ".join(initial_reply.lower().split())
+    def _is_new_assistant_text(existing: set[str], candidate: str) -> bool:
         normalized_candidate = " ".join(candidate.lower().split())
-        return bool(normalized_candidate) and normalized_candidate != normalized_initial
+        return bool(normalized_candidate) and normalized_candidate not in existing
+
+    @staticmethod
+    def _promote_render_intent_to_assistant_message(intent: str) -> str:
+        text = intent.strip()
+        if not text:
+            return ""
+
+        normalized = " ".join(text.lower().split())
+        render_prefixes = (
+            "show ",
+            "display ",
+            "render ",
+            "update ",
+            "open ",
+            "replace ",
+            "swap ",
+            "add ",
+            "remove ",
+            "focus ",
+            "prompt ",
+            "ask with ",
+        )
+        conversational_signals = (
+            "do you want",
+            "would you like",
+            "let me know",
+            "no worries",
+            "we can still",
+            "i couldn't find",
+            "i could not find",
+            "want me to",
+        )
+
+        if normalized.startswith(render_prefixes):
+            return ""
+        if any(signal in normalized for signal in conversational_signals):
+            return text
+        if "?" in text and not normalized.startswith("ask "):
+            return text
+        return ""
 
     @staticmethod
     def _message_text(message: Any) -> str:
@@ -285,6 +449,10 @@ async def stream_main_assistant(
     context: str,
     canvas_state: Dict[str, Any],
     llm: BaseChatModel,
+    *,
+    turn_id: str,
+    generation_id: int,
+    conversation: Optional[List[dict[str, str]]] = None,
     tracking_context: Optional[dict[str, Any]] = None,
 ) -> AsyncGenerator[MainAssistantEvent, None]:
     graph = build_main_assistant(llm)
@@ -292,14 +460,17 @@ async def stream_main_assistant(
     project_name = get_langsmith_project("agent-turns")
     tracing_mode = langsmith_tracing_mode()
     tracking_context = dict(tracking_context or {})
+    normalized_conversation = _normalize_conversation(conversation, current_intent=intent)
     trace_inputs = {
         "intent": intent,
         "context": context,
         "canvas_state": summarize_canvas_state(canvas_state),
+        "conversation_turns": len(normalized_conversation),
     }
     trace_metadata = {
         **tracking_context,
         "canvas_state": summarize_canvas_state(canvas_state),
+        "conversation_turns": len(normalized_conversation),
     }
 
     assistant_messages: List[str] = []
@@ -325,9 +496,16 @@ async def stream_main_assistant(
             client=client,
         ) as turn_run:
             try:
-                async for event in graph.astream(intent=intent, context=context, canvas_state=canvas_state):
+                async for event in graph.astream(
+                    intent=intent,
+                    context=context,
+                    canvas_state=canvas_state,
+                    conversation=normalized_conversation,
+                    turn_id=turn_id,
+                    generation_id=generation_id,
+                ):
                     event_types.append(event["type"])
-                    if event["type"] == "assistant_message":
+                    if event["type"] == "speech_commit":
                         assistant_messages.append(event["text"])
                     elif event["type"] == "canvas_op":
                         canvas_ops.append(event["op"])
@@ -373,9 +551,74 @@ async def run_main_assistant(
     context: str,
     canvas_state: Dict[str, Any],
     llm: BaseChatModel,
+    *,
+    turn_id: str,
+    generation_id: int,
+    conversation: Optional[List[dict[str, str]]] = None,
     tracking_context: Optional[dict[str, Any]] = None,
 ) -> List[MainAssistantEvent]:
     events: List[MainAssistantEvent] = []
-    async for event in stream_main_assistant(intent, context, canvas_state, llm, tracking_context=tracking_context):
+    async for event in stream_main_assistant(
+        intent,
+        context,
+        canvas_state,
+        llm,
+        turn_id=turn_id,
+        generation_id=generation_id,
+        conversation=conversation,
+        tracking_context=tracking_context,
+    ):
         events.append(event)
     return events
+
+
+def _normalize_conversation(
+    conversation: Optional[List[dict[str, str]]],
+    *,
+    current_intent: str,
+) -> List[dict[str, str]]:
+    normalized: List[dict[str, str]] = []
+    for turn in conversation or []:
+        role = str(turn.get("role", "")).strip().lower()
+        content = str(turn.get("content", "")).strip()
+        if role not in {"user", "assistant"} or not content:
+            continue
+        normalized.append({"role": role, "content": content})
+
+    if (
+        normalized
+        and normalized[-1]["role"] == "user"
+        and normalized[-1]["content"] == current_intent.strip()
+    ):
+        normalized = normalized[:-1]
+
+    return normalized[-_MAX_MEMORY_TURNS:]
+
+
+def _history_messages(history: List[dict[str, str]]) -> List[Any]:
+    messages: List[Any] = []
+    for turn in history:
+        if turn["role"] == "user":
+            messages.append(HumanMessage(content=turn["content"]))
+        else:
+            messages.append(AIMessage(content=turn["content"]))
+    return messages
+
+
+def _history_text(history: List[dict[str, str]]) -> str:
+    if not history:
+        return ""
+    return "\n".join(
+        f"{turn['role'].capitalize()}: {turn['content']}" for turn in history
+    )
+
+
+def _tool_summary(result: dict[str, Any]) -> str:
+    if "error" in result:
+        return str(result["error"])
+    if "streamed_ops" in result:
+        return f"streamed {result['streamed_ops']} canvas ops"
+    if "recipes" in result:
+        recipes = result.get("recipes", [])
+        return f"returned {len(recipes)} recipes"
+    return "completed"

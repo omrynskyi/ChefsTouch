@@ -221,6 +221,24 @@ class TranscriptMessage(BaseModel):
     text: str
 
 
+class PartialTranscriptInputMessage(BaseModel):
+    type: Literal["partial_transcript"] = "partial_transcript"
+    text: str
+
+
+class FinalTranscriptInputMessage(BaseModel):
+    type: Literal["final_transcript"] = "final_transcript"
+    text: str
+
+
+class UserAudioStartMessage(BaseModel):
+    type: Literal["user_audio_start"] = "user_audio_start"
+
+
+class UserAudioEndMessage(BaseModel):
+    type: Literal["user_audio_end"] = "user_audio_end"
+
+
 class CameraFramesMessage(BaseModel):
     type: Literal["camera_frames"] = "camera_frames"
     frames: List[str]
@@ -238,11 +256,17 @@ class TtsAudioMessage(BaseModel):
 class CanvasOpsMessage(BaseModel):
     type: Literal["canvas_ops"] = "canvas_ops"
     operations: List[CanvasOperation]
+    turn_id: Optional[str] = None
+    generation_id: Optional[int] = None
 
 
 class ActionMessage(BaseModel):
     type: Literal["action"] = "action"
     action: str
+
+
+class InterruptMessage(BaseModel):
+    type: Literal["interrupt"] = "interrupt"
 
 
 class SuggestionDismissedMessage(BaseModel):
@@ -257,3 +281,117 @@ class TtsTextMessage(BaseModel):
 class AgentStatusMessage(BaseModel):
     type: Literal["agent_status"] = "agent_status"
     text: str
+    turn_id: Optional[str] = None
+    generation_id: Optional[int] = None
+
+
+class SpeechStartMessage(BaseModel):
+    type: Literal["speech_start"] = "speech_start"
+    turn_id: str
+    generation_id: int
+    message_id: str
+
+
+class SpeechDeltaMessage(BaseModel):
+    type: Literal["speech_delta"] = "speech_delta"
+    turn_id: str
+    generation_id: int
+    message_id: str
+    text_delta: str
+
+
+class SpeechCommitMessage(BaseModel):
+    type: Literal["speech_commit"] = "speech_commit"
+    turn_id: str
+    generation_id: int
+    message_id: str
+    text: str
+
+
+class SpeechCancelMessage(BaseModel):
+    type: Literal["speech_cancel"] = "speech_cancel"
+    turn_id: str
+    generation_id: int
+    message_id: str
+    reason: str
+
+
+class TurnStartedMessage(BaseModel):
+    type: Literal["turn_started"] = "turn_started"
+    turn_id: str
+    generation_id: int
+    source: str
+
+
+class TurnCompletedMessage(BaseModel):
+    type: Literal["turn_completed"] = "turn_completed"
+    turn_id: str
+    generation_id: int
+
+
+class ToolStartedMessage(BaseModel):
+    type: Literal["tool_started"] = "tool_started"
+    turn_id: str
+    generation_id: int
+    tool_name: str
+    tool_call_id: str
+
+
+class ToolResultMessage(BaseModel):
+    type: Literal["tool_result"] = "tool_result"
+    turn_id: str
+    generation_id: int
+    tool_name: str
+    tool_call_id: str
+    summary: Optional[str] = None
+
+
+class ToolFailedMessage(BaseModel):
+    type: Literal["tool_failed"] = "tool_failed"
+    turn_id: str
+    generation_id: int
+    tool_name: str
+    tool_call_id: str
+    error: str
+
+
+class InterruptAckMessage(BaseModel):
+    type: Literal["interrupt_ack"] = "interrupt_ack"
+    turn_id: str
+    generation_id: int
+    cancelled_generation_id: int
+
+
+ClientMessage = Union[
+    InitMessage,
+    AudioChunkMessage,
+    PartialTranscriptInputMessage,
+    FinalTranscriptInputMessage,
+    UserAudioStartMessage,
+    UserAudioEndMessage,
+    CameraFramesMessage,
+    CameraErrorMessage,
+    ActionMessage,
+    InterruptMessage,
+    SuggestionDismissedMessage,
+]
+
+
+ServerMessage = Union[
+    SessionReadyMessage,
+    TranscriptMessage,
+    TtsAudioMessage,
+    CanvasOpsMessage,
+    TtsTextMessage,
+    AgentStatusMessage,
+    SpeechStartMessage,
+    SpeechDeltaMessage,
+    SpeechCommitMessage,
+    SpeechCancelMessage,
+    TurnStartedMessage,
+    TurnCompletedMessage,
+    ToolStartedMessage,
+    ToolResultMessage,
+    ToolFailedMessage,
+    InterruptAckMessage,
+]

@@ -92,7 +92,7 @@ describe("Canvas", () => {
     expect(container).toMatchSnapshot();
   });
 
-  it("renders assistant-message in corner-tl", () => {
+  it("does not render assistant-message directly in canvas corner-tl", () => {
     const state = activeState(["sys-assistant-message", {
       id: "sys-assistant-message",
       type: "assistant-message",
@@ -100,7 +100,7 @@ describe("Canvas", () => {
     }]);
     const { container } = renderCanvas(state);
     const zone = container.querySelector('[zone="corner-tl"]');
-    expect(zone!.textContent).toContain("One sec, I'm on it.");
+    expect(zone!.textContent).toBe("");
     expect(container).toMatchSnapshot();
   });
 

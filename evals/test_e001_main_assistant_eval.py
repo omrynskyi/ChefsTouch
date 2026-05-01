@@ -90,10 +90,12 @@ async def _run_case(inputs: dict[str, Any]) -> dict[str, Any]:
                     inputs["context"],
                     inputs["canvas_state"],
                     llm,  # type: ignore[arg-type]
+                    turn_id="eval-turn",
+                    generation_id=1,
                 )
             ]
 
-    assistant_messages = [event["text"] for event in events if event["type"] == "assistant_message"]
+    assistant_messages = [event["text"] for event in events if event["type"] == "speech_commit"]
     canvas_ops = [event["op"] for event in events if event["type"] == "canvas_op"]
     tool_names = [event["tool_name"] for event in events if event["type"] == "tool_call"]
 

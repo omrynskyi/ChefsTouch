@@ -9,6 +9,9 @@ import pytest
 from packages.agents.main_assistant import stream_main_assistant
 
 
+STREAM_KWARGS = {"turn_id": "turn-123", "generation_id": 1}
+
+
 def _make_tool_call_msg(tool_name: str, args: dict, call_id: str = "tc1"):
     from langchain_core.messages import AIMessage
     return AIMessage(
@@ -27,11 +30,13 @@ class _SequenceLLM:
         self._responses = list(responses)
         self._idx = 0
         self._stream_text = stream_text
+        self.calls: list[Any] = []
 
     def bind_tools(self, tools):
         return self
 
     async def ainvoke(self, messages) -> Any:
+        self.calls.append(messages)
         if self._idx >= len(self._responses):
             from langchain_core.messages import AIMessage
             return AIMessage(content="")
@@ -58,9 +63,9 @@ async def test_initial_reply_emits_before_streamed_canvas_ops():
         ),
     )
 
-    events = [e async for e in stream_main_assistant("next step", "Recipe: Pasta", {}, llm)]  # type: ignore[arg-type]
+    events = [e async for e in stream_main_assistant("next step", "Recipe: Pasta", {}, llm, **STREAM_KWARGS)]  # type: ignore[arg-type]
 
-    assistant_events = [e for e in events if e["type"] == "assistant_message"]
+    assistant_events = [e for e in events if e["type"] == "speech_commit"]
     canvas_events = [e for e in events if e["type"] == "canvas_op"]
 
     assert assistant_events[0]["text"] == "On it."
@@ -76,9 +81,9 @@ async def test_empty_initial_reply_uses_default_message():
         _make_text_msg(""),
     ])
 
-    events = [e async for e in stream_main_assistant("how am I doing?", "Step 3", {}, llm)]  # type: ignore[arg-type]
+    events = [e async for e in stream_main_assistant("how am I doing?", "Step 3", {}, llm, **STREAM_KWARGS)]  # type: ignore[arg-type]
 
-    first_reply = next(e for e in events if e["type"] == "assistant_message")
+    first_reply = next(e for e in events if e["type"] == "speech_commit")
     assert first_reply["text"] == "One sec, I'm on it."
 
 
@@ -96,7 +101,7 @@ async def test_render_canvas_streams_repaired_recipe_grid_before_options():
         ),
     )
 
-    events = [e async for e in stream_main_assistant("show recipes", "", {}, llm)]  # type: ignore[arg-type]
+    events = [e async for e in stream_main_assistant("show recipes", "", {}, llm, **STREAM_KWARGS)]  # type: ignore[arg-type]
     canvas_ids = [e["op"]["id"] for e in events if e["type"] == "canvas_op" and e["op"]["op"] != "skeleton"]
 
     assert canvas_ids == ["veg-grid", "veg-opt-1", "veg-opt-2"]
@@ -110,10 +115,85 @@ async def test_find_recipes_can_emit_material_follow_up():
         _make_text_msg("Here are some pasta ideas."),
     ])
 
-    events = [e async for e in stream_main_assistant("show me pasta recipes", "", {}, llm)]  # type: ignore[arg-type]
-    assistant_texts = [e["text"] for e in events if e["type"] == "assistant_message"]
+    events = [e async for e in stream_main_assistant("show me pasta recipes", "", {}, llm, **STREAM_KWARGS)]  # type: ignore[arg-type]
+    assistant_texts = [e["text"] for e in events if e["type"] == "speech_commit"]
 
     assert assistant_texts == ["On it.", "Here are some pasta ideas."]
+
+
+@pytest.mark.asyncio
+async def test_conversational_render_intent_is_promoted_to_assistant_message():
+    llm = _SequenceLLM([
+        _make_text_msg("One sec, I'm on it."),
+        _make_tool_call_msg(
+            "render_canvas",
+            {
+                "intent": (
+                    "No worries! Just let me know if you prefer searching by cuisine "
+                    "or if you want some general recipe suggestions."
+                )
+            },
+        ),
+        _make_text_msg(""),
+    ])
+
+    events = [
+        e
+        async for e in stream_main_assistant(
+            "I want to cook something with chicken, rice, veggies, and sour cream",
+            "",
+            {},
+            llm,  # type: ignore[arg-type]
+            **STREAM_KWARGS,
+        )
+    ]
+
+    assistant_texts = [e["text"] for e in events if e["type"] == "speech_commit"]
+    canvas_events = [e for e in events if e["type"] == "canvas_op"]
+
+    assert assistant_texts == [
+        "One sec, I'm on it.",
+        "No worries! Just let me know if you prefer searching by cuisine or if you want some general recipe suggestions.",
+    ]
+    assert canvas_events == []
+
+
+@pytest.mark.asyncio
+async def test_conversation_memory_is_passed_to_main_agent_only_once():
+    llm = _SequenceLLM([
+        _make_text_msg("Yep, still no cilantro."),
+        _make_text_msg(""),
+    ])
+    conversation = [
+        {"role": "user", "content": "I hate cilantro."},
+        {"role": "assistant", "content": "Noted, we'll avoid it."},
+        {"role": "user", "content": "What did I say I hate?"},
+    ]
+
+    events = [
+        e
+        async for e in stream_main_assistant(
+            "What did I say I hate?",
+            "",
+            {},
+            llm,  # type: ignore[arg-type]
+            **STREAM_KWARGS,
+            conversation=conversation,
+        )
+    ]
+
+    assert [e["text"] for e in events if e["type"] == "speech_commit"] == ["Yep, still no cilantro."]
+
+    initial_prompt = llm.calls[0][0].content
+    assert "User: I hate cilantro." in initial_prompt
+    assert "Assistant: Noted, we'll avoid it." in initial_prompt
+    assert initial_prompt.count("What did I say I hate?") == 1
+
+    planning_messages = llm.calls[1]
+    assert planning_messages[1].content == "I hate cilantro."
+    assert planning_messages[2].content == "Noted, we'll avoid it."
+    assert planning_messages[3].content == "What did I say I hate?"
+    assert planning_messages[4].content == "Yep, still no cilantro."
 
 
 @pytest.mark.asyncio
@@ -129,9 +209,9 @@ async def test_render_failures_emit_fallback_follow_up():
         yield  # pragma: no cover
 
     with patch("packages.agents.main_assistant.graph.astream_canvas_ops", _fail):
-        events = [e async for e in stream_main_assistant("next step", "", {}, llm)]  # type: ignore[arg-type]
+        events = [e async for e in stream_main_assistant("next step", "", {}, llm, **STREAM_KWARGS)]  # type: ignore[arg-type]
 
-    assistant_texts = [e["text"] for e in events if e["type"] == "assistant_message"]
+    assistant_texts = [e["text"] for e in events if e["type"] == "speech_commit"]
     assert assistant_texts[-1] == "Hmm, something went sideways. Let me try that another way."
 
 
@@ -147,8 +227,8 @@ async def test_completes_within_latency_budget():
         timeout=4.0,
     )
 
-    assert any(event["type"] == "turn_complete" for event in events)
+    assert any(event["type"] == "turn_completed" for event in events)
 
 
 async def _collect_events(intent: str, context: str, canvas_state: dict, llm: Any):
-    return [e async for e in stream_main_assistant(intent, context, canvas_state, llm)]  # type: ignore[arg-type]
+    return [e async for e in stream_main_assistant(intent, context, canvas_state, llm, **STREAM_KWARGS)]  # type: ignore[arg-type]

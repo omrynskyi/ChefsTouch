@@ -9,7 +9,9 @@
 
 ## Overview
 
-This document specifies the rendering architecture for the agent-controlled canvas. The system uses a **Double-Buffered, Predictive Architecture** to eliminate LLM latency for common user transitions and **Progressive JSON Parsing** to achieve instantaneous, token-by-token UI updates.
+This document specifies the **rendering architecture only** for the agent-controlled canvas. It owns canvas operations, staging behavior, progressive parsing, and render-agent protocol. It does **not** define the primary conversation runtime, speculative speech rules, realtime audio model, interruption model, or end-to-end conversational latency strategy. Those system-level behaviors are defined in `SYSTEM_DESIGN.md`.
+
+The system uses a **Double-Buffered, Predictive Architecture** to eliminate UI latency for common user transitions and **Progressive JSON Parsing** to achieve instantaneous, token-by-token UI updates.
 
 The agent emits typed canvas operations as JSONL. The React canvas renderer maps each operation to a React component placed in a named CSS grid zone.
 
@@ -18,7 +20,7 @@ The agent emits typed canvas operations as JSONL. The React canvas renderer maps
 ## Core Principles
 
 1. **Double-Buffering:** The UI maintains an **Active Canvas** (visible) and a **Staging Area** (in-memory cache).
-2. **Speculative Execution:** During idle time, the Orchestrator predicts next user actions and prompts the Agent to pre-generate UI into the Staging Area.
+2. **Speculative Execution:** During idle time, the orchestrator may predict next user actions and prompt the Render Agent to pre-generate UI into the Staging Area.
 3. **Progressive Streaming:** The backend continuously patches incomplete JSON chunks into valid partial objects, allowing text to "type out" on the screen before the LLM finishes a turn.
 4. **Topological Ordering:** Parents arrive before children; critical data arrives before supplementary data.
 
@@ -75,7 +77,7 @@ See `packages/types/src/index.ts` for full TypeScript interfaces. Components mus
 
 ## Background Precomputation Loop
 
-To achieve zero-latency for expected actions (e.g., "Next step"), the Orchestrator follows this speculative loop:
+To achieve zero-latency for expected actions (e.g., "Next step"), the orchestrator may follow this speculative rendering loop:
 
 1. **Idle Detection:** The system waits for the Render Agent to finish an active turn.
 2. **Action Prediction:** The Orchestrator predicts the most likely next user intent (e.g., "Advance to step 2").
@@ -124,6 +126,19 @@ CANVAS STATE:
 
 ---
 
+## Boundaries With System Design
+
+This document intentionally does not answer:
+- when the assistant should speak
+- what speculative speech is allowed
+- how barge-in cancels speech
+- whether a tool is conversation-blocking or non-blocking
+- how the Main Agent prioritizes user-facing speech versus tool work
+
+Those decisions belong to `SYSTEM_DESIGN.md`.
+
+---
+
 ## Open Questions
 
 | # | Question | Priority |
@@ -131,3 +146,4 @@ CANVAS STATE:
 | 1 | **Staging Invalidation:** How long do staged components live before being cleared? | Medium |
 | 2 | **Conflict Resolution:** What happens if a background pre-render turn overlaps with a sudden user voice input? | High |
 | 3 | **Partial State Flickering:** How to prevent React from flickering when a partial JSON string is momentarily invalid during patching? | Medium |
+| 4 | **Render Cancellation:** What render-side cancellation semantics are needed when a newer `generation_id` supersedes an older staged or active update? | High |

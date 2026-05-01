@@ -226,6 +226,24 @@ export interface TranscriptMessage {
   text: string;
 }
 
+export interface PartialTranscriptInputMessage {
+  type: "partial_transcript";
+  text: string;
+}
+
+export interface FinalTranscriptInputMessage {
+  type: "final_transcript";
+  text: string;
+}
+
+export interface UserAudioStartMessage {
+  type: "user_audio_start";
+}
+
+export interface UserAudioEndMessage {
+  type: "user_audio_end";
+}
+
 export interface CameraFramesMessage {
   type: "camera_frames";
   frames: string[]; // base64 JPEG
@@ -243,11 +261,17 @@ export interface TtsAudioMessage {
 export interface CanvasOpsMessage {
   type: "canvas_ops";
   operations: CanvasOperation[];
+  turn_id?: string;
+  generation_id?: number;
 }
 
 export interface ActionMessage {
   type: "action";
   action: string;
+}
+
+export interface InterruptMessage {
+  type: "interrupt";
 }
 
 export interface SuggestionDismissedMessage {
@@ -257,9 +281,14 @@ export interface SuggestionDismissedMessage {
 export type ClientMessage =
   | InitMessage
   | AudioChunkMessage
+  | PartialTranscriptInputMessage
+  | FinalTranscriptInputMessage
+  | UserAudioStartMessage
+  | UserAudioEndMessage
   | CameraFramesMessage
   | CameraErrorMessage
   | ActionMessage
+  | InterruptMessage
   | SuggestionDismissedMessage;
 
 export interface TtsTextMessage {
@@ -271,6 +300,85 @@ export interface TtsTextMessage {
 export interface AgentStatusMessage {
   type: "agent_status";
   text: string;
+  turn_id?: string;
+  generation_id?: number;
+}
+
+export interface SpeechStartMessage {
+  type: "speech_start";
+  turn_id: string;
+  generation_id: number;
+  message_id: string;
+}
+
+export interface SpeechDeltaMessage {
+  type: "speech_delta";
+  turn_id: string;
+  generation_id: number;
+  message_id: string;
+  text_delta: string;
+}
+
+export interface SpeechCommitMessage {
+  type: "speech_commit";
+  turn_id: string;
+  generation_id: number;
+  message_id: string;
+  text: string;
+}
+
+export interface SpeechCancelMessage {
+  type: "speech_cancel";
+  turn_id: string;
+  generation_id: number;
+  message_id: string;
+  reason: string;
+}
+
+export interface TurnStartedMessage {
+  type: "turn_started";
+  turn_id: string;
+  generation_id: number;
+  source: string;
+}
+
+export interface TurnCompletedMessage {
+  type: "turn_completed";
+  turn_id: string;
+  generation_id: number;
+}
+
+export interface ToolStartedMessage {
+  type: "tool_started";
+  turn_id: string;
+  generation_id: number;
+  tool_name: string;
+  tool_call_id: string;
+}
+
+export interface ToolResultMessage {
+  type: "tool_result";
+  turn_id: string;
+  generation_id: number;
+  tool_name: string;
+  tool_call_id: string;
+  summary?: string;
+}
+
+export interface ToolFailedMessage {
+  type: "tool_failed";
+  turn_id: string;
+  generation_id: number;
+  tool_name: string;
+  tool_call_id: string;
+  error: string;
+}
+
+export interface InterruptAckMessage {
+  type: "interrupt_ack";
+  turn_id: string;
+  generation_id: number;
+  cancelled_generation_id: number;
 }
 
 export type ServerMessage =
@@ -279,4 +387,14 @@ export type ServerMessage =
   | TtsAudioMessage
   | CanvasOpsMessage
   | TtsTextMessage
-  | AgentStatusMessage;
+  | AgentStatusMessage
+  | SpeechStartMessage
+  | SpeechDeltaMessage
+  | SpeechCommitMessage
+  | SpeechCancelMessage
+  | TurnStartedMessage
+  | TurnCompletedMessage
+  | ToolStartedMessage
+  | ToolResultMessage
+  | ToolFailedMessage
+  | InterruptAckMessage;

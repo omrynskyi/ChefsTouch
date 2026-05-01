@@ -121,6 +121,7 @@ export function Canvas() {
   for (const comp of entries) {
     if (comp.type === "recipe-option" && comp.parent) continue;
     if (COMPANION_TYPES.has(comp.type)) continue;
+    if (comp.type === "assistant-message") continue;
     primaryByZone.set(getZone(comp), comp);
   }
 

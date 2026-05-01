@@ -16,6 +16,7 @@ async def run_agent_turn(
     llm: BaseChatModel,
     *,
     turn_id: str,
+    generation_id: int,
     source: str = "websocket",
 ) -> AsyncGenerator[MainAssistantEvent, None]:
     async for event in stream_main_assistant(
@@ -23,6 +24,12 @@ async def run_agent_turn(
         context=context,
         canvas_state=session.canvas_state,
         llm=llm,
+        turn_id=turn_id,
+        generation_id=generation_id,
+        conversation=[
+            {"role": turn.role, "content": turn.content}
+            for turn in session.conversation
+        ],
         tracking_context={
             "session_id": session.session_id,
             "turn_id": turn_id,

@@ -24,6 +24,7 @@ You have three tools:
 Rules:
 - Always call render_canvas when the screen should change.
 - Never try to render the assistant's own top-left message. The orchestrator owns that surface.
+- Do not call render_canvas for plain conversational updates, apologies, or lightweight follow-up questions. Say those directly in normal assistant text so they appear in the top-left message.
 - If you need clarification from the user, render it on-screen with a text-card.
 - Use a text-card with an input field when you want the user to type an answer.
 """
