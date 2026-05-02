@@ -21,11 +21,15 @@ function renderInline(text: string): React.ReactNode[] {
   });
 }
 
+const TRUNCATE_THRESHOLD = 200;
+
 export function TextCard({ data, focused }: Props) {
   const { send } = useWebSocket();
   const [value, setValue] = useState("");
+  const [expanded, setExpanded] = useState(false);
 
   const hasInput = typeof data.input_placeholder === "string" && data.input_placeholder.trim().length > 0;
+  const isLong = data.body.length > TRUNCATE_THRESHOLD;
 
   const handleSubmit = () => {
     const answer = value.trim();
@@ -38,7 +42,29 @@ export function TextCard({ data, focused }: Props) {
 
   return (
     <div className={`card comp-medium${focused ? " elevated" : ""}`}>
-      <p className="text-primary size-md">{renderInline(data.body)}</p>
+      <p
+        className="text-primary size-md"
+        style={
+          isLong && !expanded
+            ? {
+                display: "-webkit-box",
+                WebkitLineClamp: 4,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+              }
+            : undefined
+        }
+      >
+        {renderInline(data.body)}
+      </p>
+      {isLong && (
+        <button
+          className="btn-text size-sm"
+          onClick={() => setExpanded((e) => !e)}
+        >
+          {expanded ? "Show less ↑" : "Show more ↓"}
+        </button>
+      )}
       {hasInput && (
         <div style={{ display: "flex", gap: "var(--space-sm)", marginTop: "var(--space-md)" }}>
           <input

@@ -1,26 +1,22 @@
 """
-Seed script: inserts 5 sample recipes for local dev.
+Seed script: inserts 5 sample recipes with real nomic-embed-text-v1 embeddings.
 
-Embeddings are random unit vectors. Re-embed with real OpenAI vectors
-once the Recipe Agent (T-032) is wired up.
+Prerequisites:
+  1. Run supabase/resize_embedding_768.sql in the Supabase SQL Editor to resize
+     the embedding column from vector(1536) to vector(768).
+  2. Start LM Studio and load the nomic-embed-text-v1 model.
 
 Usage:
-    python seed.py
+    cd apps/api && python seed.py
 """
 
-import math
-import random
+import asyncio
 import sys
 
 from db import get_client
+from llm import get_embed_model
 
-EMBEDDING_DIM = 1536
-
-
-def random_unit_vector(dim: int) -> list[float]:
-    v = [random.gauss(0, 1) for _ in range(dim)]
-    norm = math.sqrt(sum(x * x for x in v))
-    return [x / norm for x in v]
+EMBEDDING_DIM = 768  # nomic-embed-text-v1 output dimension
 
 
 RECIPES = [
@@ -98,7 +94,7 @@ RECIPES = [
 ]
 
 
-def main() -> None:
+async def main() -> None:
     client = get_client()
 
     existing = client.table("recipes").select("recipe_id").execute()
@@ -106,11 +102,14 @@ def main() -> None:
         print(f"Found {len(existing.data)} existing recipes — skipping seed.")
         sys.exit(0)
 
+    print("Embedding recipes with nomic-embed-text-v1 via LM Studio…")
+    embed_model = get_embed_model()
+    texts = [f"{r['title']}. {r['description']}" for r in RECIPES]
+    embeddings = await embed_model.aembed_documents(texts)  # single batched call
+
     rows = []
-    for recipe in RECIPES:
-        row = {**recipe}
-        row["steps"] = [s for s in row["steps"]]
-        row["embedding"] = random_unit_vector(EMBEDDING_DIM)
+    for recipe, embedding in zip(RECIPES, embeddings):
+        row = {**recipe, "steps": list(recipe["steps"]), "embedding": embedding}
         rows.append(row)
 
     result = client.table("recipes").insert(rows).execute()
@@ -118,4 +117,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

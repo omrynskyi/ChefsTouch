@@ -672,6 +672,74 @@ button:active { transform: scale(0.97); }
 }
 
 
+/* ── Text expand toggle ──────────────────────────────────────── */
+
+.btn-text {
+  background: none;
+  border: none;
+  color: var(--accent-text);
+  cursor: pointer;
+  padding: 2px 0;
+  font-size: 13px;
+  font-weight: 500;
+  margin-top: var(--space-xs);
+  transition: opacity 0.1s;
+}
+.btn-text:hover { opacity: 0.75; background: none; }
+
+
+/* ── Camera frame + states ───────────────────────────────────── */
+
+.camera-frame {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+  object-fit: cover;
+  display: block;
+}
+
+.camera-requesting {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 14px;
+  gap: var(--space-sm);
+}
+
+.camera-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  color: var(--text-secondary);
+  font-size: 14px;
+  text-align: center;
+  padding: var(--space-md);
+}
+
+.camera-dismiss {
+  position: absolute;
+  top: var(--space-sm);
+  right: var(--space-sm);
+  background: rgba(0,0,0,0.12);
+  border: none;
+  border-radius: var(--radius-pill);
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-primary);
+  padding: 0;
+}
+.camera-dismiss:hover { background: rgba(0,0,0,0.22); }
+
+
 /* ── Responsive canvas ───────────────────────────────────────── */
 
 @media (max-width: 600px) {

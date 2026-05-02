@@ -1,109 +1,106 @@
 import { useRef, useState } from "react";
 import { useCanvas } from "../contexts/CanvasContext";
 import { useWebSocket } from "../contexts/WebSocketContext";
-import type { CanvasOperation } from "@pair-cooking/types";
-import { getZone, targetZonesForOps, COMPANION_TYPES } from "./zones";
 
-const STEPS = [
-  { n: 1, instruction: "Bring a large pot of well-salted water to a rolling boil.", tip: "Salt until it tastes like the sea — about 1 tbsp per litre.", tags: ["~5 min", "stovetop"] },
-  { n: 2, instruction: "Add the pasta to the boiling water and cook until al dente.", tip: "Use at least 4 litres — it should taste like the sea.", tags: ["~10 min", "stovetop"] },
-  { n: 3, instruction: "While the pasta cooks, fry the guanciale in a cold pan over medium heat.", tip: "Starting cold renders the fat slowly for maximum crispness.", tags: ["~8 min", "stovetop"] },
-  { n: 4, instruction: "Whisk together eggs, pecorino, and black pepper in a bowl.", tip: "Keep it off heat — the egg mixture must stay cold until the final step.", tags: ["~3 min", "off-heat"] },
-  { n: 5, instruction: "Reserve a mug of pasta water, drain the pasta, and add to the guanciale pan.", tip: "The pasta water starch is what makes the sauce silky.", tags: ["stovetop"] },
-  { n: 6, instruction: "Off the heat, pour the egg mixture over the pasta and toss vigorously.", tip: "Work fast — the residual heat cooks the eggs without scrambling them.", tags: ["~2 min", "off-heat"] },
-];
+// ── Preset prompts ────────────────────────────────────────────────────────────
 
-const FIXTURES: { label: string; ops: CanvasOperation[] }[] = [
+const PRESETS: { section: string; prompts: { label: string; action: string }[] }[] = [
   {
-    label: "Step view",
-    ops: [
-      { op: "add", id: "dbg-step", type: "step-view", data: { step_number: 2, total_steps: 6, recipe: "Pasta Carbonara", instruction: STEPS[1].instruction, tip: STEPS[1].tip, tags: STEPS[1].tags, action: "next_step" } },
-      { op: "add", id: "dbg-progress", type: "progress-bar", data: { current: 2, total: 6 } },
-      { op: "add", id: "dbg-timer", type: "timer", data: { duration_seconds: 600, label: "Boiling", auto_start: true } },
+    section: "Recipe discovery",
+    prompts: [
+      { label: "Pasta carbonara",        action: "I want to make pasta carbonara" },
+      { label: "Chicken + lemon",        action: "What can I cook with chicken, garlic, and lemon?" },
+      { label: "Quick vegetarian",       action: "Something quick and vegetarian, under 30 minutes" },
+      { label: "Use what I have",        action: "I have eggs, cheese, and some leftover vegetables — what can I make?" },
     ],
   },
   {
-    label: "Alert (urgent)",
-    ops: [
-      { op: "add", id: "dbg-alert", type: "alert", data: { text: "Pan is too hot — reduce heat immediately!", urgent: true } },
+    section: "During a cook",
+    prompts: [
+      { label: "Next step →",            action: "Next step please" },
+      { label: "Repeat current step",    action: "Can you repeat the current step?" },
+      { label: "How long left?",         action: "How much longer do I have on the timer?" },
+      { label: "I'm ready",              action: "I'm ready to continue" },
+      { label: "Set 10-min timer",       action: "Set a timer for 10 minutes" },
     ],
   },
   {
-    label: "Alert (warning)",
-    ops: [
-      { op: "add", id: "dbg-alert", type: "alert", data: { text: "Pasta is almost done — start the sauce now.", urgent: false } },
+    section: "Camera checks",
+    prompts: [
+      { label: "Check if done",          action: "Can you check if this looks right?" },
+      { label: "Is pasta cooked?",       action: "Is the pasta cooked enough?" },
+      { label: "Is chicken through?",    action: "Is the chicken cooked through?" },
     ],
   },
   {
-    label: "Suggestion",
-    ops: [
-      { op: "add", id: "dbg-suggestion", type: "suggestion", data: { heading: "While you wait", body: "You could chop the garlic now — it'll save you time in step 3.", action_label: "Got it" } },
+    section: "Substitutions & help",
+    prompts: [
+      { label: "No pecorino",            action: "I don't have pecorino, what can I substitute?" },
+      { label: "Swap guanciale",         action: "Can I use bacon instead of guanciale?" },
+      { label: "Make it spicier",        action: "How do I make this spicier?" },
+      { label: "Skip this step",         action: "Can we skip this step?" },
     ],
   },
   {
-    label: "Recipe grid",
-    ops: [
-      { op: "add", id: "dbg-grid", type: "recipe-grid", data: {} },
-      { op: "add", id: "dbg-r1", type: "recipe-option", parent: "dbg-grid", data: { title: "Pasta Carbonara", description: "Classic Roman pasta", duration: "30 min", tags: ["italian"], action: "select_carbonara" } },
-      { op: "add", id: "dbg-r2", type: "recipe-option", parent: "dbg-grid", data: { title: "Aglio e Olio", description: "Garlic, oil, and chilli", duration: "20 min", tags: ["italian", "quick"], action: "select_aglio" } },
-      { op: "add", id: "dbg-r3", type: "recipe-option", parent: "dbg-grid", data: { title: "Cacio e Pepe", description: "Cheese and black pepper", duration: "25 min", tags: ["italian"], action: "select_cacio" } },
-    ],
-  },
-  {
-    label: "Ingredient list",
-    ops: [
-      { op: "add", id: "dbg-ingredients", type: "ingredient-list", data: { items: [{ name: "Spaghetti", qty: "200g" }, { name: "Guanciale", qty: "100g" }, { name: "Pecorino Romano", qty: "50g" }, { name: "Eggs", qty: "3 large" }, { name: "Black pepper", qty: "1 tsp" }] } },
-    ],
-  },
-  {
-    label: "Text card",
-    ops: [
-      { op: "add", id: "dbg-text", type: "text-card", data: { body: "Use **fresh** pasta for _best_ results. The starch content is higher, which helps the sauce cling." } },
-    ],
-  },
-  {
-    label: "Camera",
-    ops: [
-      { op: "add", id: "dbg-camera", type: "camera", data: { prompt: "Is the chicken cooked through? Look for clear juices and no pink meat." } },
-    ],
-  },
-  {
-    label: "Skeleton (step-view)",
-    ops: [
-      { op: "skeleton", id: "dbg-skeleton-step", type: "step-view" },
-      { op: "skeleton", id: "dbg-skeleton-progress", type: "progress-bar" },
-      { op: "skeleton", id: "dbg-skeleton-timer", type: "timer" },
-    ],
-  },
-  {
-    label: "Focused component",
-    ops: [
-      { op: "add", id: "dbg-step", type: "step-view", data: { step_number: 1, total_steps: 4, recipe: "Risotto", instruction: "Toast the rice in butter until translucent.", tags: ["stovetop"] } },
-      { op: "focus", id: "dbg-step" },
+    section: "Session",
+    prompts: [
+      { label: "What are we making?",    action: "What recipe are we making?" },
+      { label: "Start over",             action: "Let's start over with a different recipe" },
+      { label: "How's it going?",        action: "Give me a quick summary of where we are" },
     ],
   },
 ];
+
+// ── Styles ────────────────────────────────────────────────────────────────────
 
 const btnStyle: React.CSSProperties = {
-  background: "rgba(255,255,255,0.08)",
+  background: "rgba(255,255,255,0.07)",
   color: "#e8d8c0",
   border: "none",
-  borderRadius: "6px",
-  padding: "5px 10px",
+  borderRadius: "5px",
+  padding: "4px 9px",
   cursor: "pointer",
   textAlign: "left",
   fontSize: "12px",
   fontFamily: "var(--font-mono)",
   transition: "background 0.1s",
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
 };
 
-function DbgButton({ onClick, children, accent }: { onClick: () => void; children: React.ReactNode; accent?: boolean }) {
+function DbgButton({
+  onClick,
+  children,
+  accent,
+  disabled,
+  full,
+}: {
+  onClick: () => void;
+  children: React.ReactNode;
+  accent?: boolean;
+  disabled?: boolean;
+  full?: boolean;
+}) {
+  const base: React.CSSProperties = accent
+    ? { ...btnStyle, background: "rgba(200,95,58,0.2)", color: "#c85f3a" }
+    : btnStyle;
   return (
     <button
       onClick={onClick}
-      style={accent ? { ...btnStyle, background: "rgba(200,95,58,0.2)", color: "#c85f3a" } : btnStyle}
-      onMouseEnter={(e) => (e.currentTarget.style.background = accent ? "rgba(200,95,58,0.35)" : "rgba(255,255,255,0.16)")}
-      onMouseLeave={(e) => (e.currentTarget.style.background = accent ? "rgba(200,95,58,0.2)" : "rgba(255,255,255,0.08)")}
+      disabled={disabled}
+      style={{ ...base, opacity: disabled ? 0.4 : 1, width: full ? "100%" : undefined }}
+      onMouseEnter={(e) => {
+        if (!disabled)
+          e.currentTarget.style.background = accent
+            ? "rgba(200,95,58,0.35)"
+            : "rgba(255,255,255,0.15)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = accent
+          ? "rgba(200,95,58,0.2)"
+          : "rgba(255,255,255,0.07)";
+      }}
     >
       {children}
     </button>
@@ -111,62 +108,50 @@ function DbgButton({ onClick, children, accent }: { onClick: () => void; childre
 }
 
 function Divider() {
-  return <hr style={{ border: "none", borderTop: "1px solid rgba(255,255,255,0.1)", margin: "4px 0" }} />;
+  return (
+    <hr style={{ border: "none", borderTop: "1px solid rgba(255,255,255,0.08)", margin: "6px 0" }} />
+  );
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <span style={{ color: "#a89880", fontWeight: 600, marginBottom: "2px", fontSize: "11px", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+    <span
+      style={{
+        color: "#a89880",
+        fontWeight: 600,
+        fontSize: "10px",
+        letterSpacing: "0.1em",
+        textTransform: "uppercase",
+        display: "block",
+        marginBottom: "4px",
+        marginTop: "2px",
+      }}
+    >
       {children}
     </span>
   );
 }
 
+// ── Component ─────────────────────────────────────────────────────────────────
+
 export function DebugPanel() {
   const { state, dispatch } = useCanvas();
   const { send, status } = useWebSocket();
   const [open, setOpen] = useState(false);
-  const [stepIdx, setStepIdx] = useState(1); // 0-based index into STEPS
-  const [agentInput, setAgentInput] = useState("");
+  const [freeText, setFreeText] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const hasStepView = state.active.has("dbg-step");
-  const hasProgress = state.active.has("dbg-progress");
+  const connected = status === "connected";
 
-  const clearCanvas = () => {
-    for (const id of state.active.keys()) dispatch({ op: "remove", id });
-  };
-
-  const sendAction = () => {
-    const action = agentInput.trim();
-    if (!action) return;
-    send({ type: "action", action });
-    setAgentInput("");
+  const sendAction = (action: string) => {
+    if (!action.trim() || !connected) return;
+    send({ type: "action", action: action.trim() });
+    setFreeText("");
     inputRef.current?.focus();
   };
 
-  const inject = (ops: CanvasOperation[]) => {
-    // Companions (alert, text-card) never displace primaries — just add them.
-    // Primary ops clear only the zones they will occupy.
-    const zones = targetZonesForOps(ops);
-    for (const [id, comp] of state.active) {
-      if (!COMPANION_TYPES.has(comp.type) && zones.has(getZone(comp))) {
-        dispatch({ op: "remove", id });
-      }
-    }
-    for (const op of ops) dispatch(op);
-  };
-
-  const goToStep = (idx: number) => {
-    const clamped = Math.max(0, Math.min(STEPS.length - 1, idx));
-    setStepIdx(clamped);
-    const s = STEPS[clamped];
-    if (hasStepView) {
-      dispatch({ op: "update", id: "dbg-step", data: { step_number: s.n, total_steps: 6, instruction: s.instruction, tip: s.tip ?? null, tags: s.tags, action: clamped < STEPS.length - 1 ? "next_step" : null } });
-    }
-    if (hasProgress) {
-      dispatch({ op: "update", id: "dbg-progress", data: { current: s.n, total: 6 } });
-    }
+  const clearCanvas = () => {
+    for (const id of state.active.keys()) dispatch({ op: "remove", id });
   };
 
   return (
@@ -183,77 +168,95 @@ export function DebugPanel() {
       {open && (
         <div
           style={{
-            background: "rgba(20,15,10,0.92)",
-            backdropFilter: "blur(8px)",
+            background: "rgba(20,15,10,0.93)",
+            backdropFilter: "blur(10px)",
             borderRadius: "var(--radius-md)",
-            padding: "var(--space-sm) var(--space-md)",
-            marginBottom: "var(--space-xs)",
+            padding: "10px 12px",
+            marginBottom: "6px",
             display: "flex",
             flexDirection: "column",
-            gap: "4px",
-            minWidth: "220px",
-            maxHeight: "80vh",
+            gap: "3px",
+            width: "260px",
+            maxHeight: "82vh",
             overflowY: "auto",
-            boxShadow: "0 4px 24px rgba(0,0,0,0.4)",
+            boxShadow: "0 4px 28px rgba(0,0,0,0.5)",
           }}
         >
-          <SectionLabel>Fixtures</SectionLabel>
-          {FIXTURES.map((f) => (
-            <DbgButton key={f.label} onClick={() => inject(f.ops)}>
-              {f.label}
-            </DbgButton>
-          ))}
-
-          <Divider />
-          <SectionLabel>Step cycling</SectionLabel>
-          <div style={{ color: "#a89880", fontSize: "11px", marginBottom: "2px" }}>
-            Step {STEPS[stepIdx].n} of {STEPS.length}
-            {!hasStepView && <span style={{ color: "#c85f3a" }}> — load Step view first</span>}
-          </div>
-          <div style={{ display: "flex", gap: "4px" }}>
-            <DbgButton onClick={() => goToStep(stepIdx - 1)}>← Prev</DbgButton>
-            <DbgButton onClick={() => goToStep(stepIdx + 1)}>Next →</DbgButton>
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginTop: "2px" }}>
-            {STEPS.map((s, i) => (
-              <DbgButton key={i} onClick={() => goToStep(i)}>
-                {stepIdx === i ? `[${s.n}]` : `${s.n}`}
-              </DbgButton>
-            ))}
-          </div>
-
-          <Divider />
-          <SectionLabel>Agent</SectionLabel>
-          <div style={{ color: "#a89880", fontSize: "11px", marginBottom: "2px" }}>
-            {status === "connected" ? "Connected" : <span style={{ color: "#c85f3a" }}>{status}</span>}
-          </div>
-          <div style={{ display: "flex", gap: "4px" }}>
+          {/* Connection status + free-text input */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              marginBottom: "4px",
+            }}
+          >
+            <span
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: "50%",
+                background: connected ? "#22c55e" : "#ef4444",
+                flexShrink: 0,
+              }}
+            />
             <input
               ref={inputRef}
-              value={agentInput}
-              onChange={(e) => setAgentInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") sendAction(); }}
+              value={freeText}
+              onChange={(e) => setFreeText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") sendAction(freeText);
+              }}
               placeholder="Type an intent…"
-              disabled={status !== "connected"}
+              disabled={!connected}
               style={{
                 flex: 1,
                 background: "rgba(255,255,255,0.06)",
                 color: "#e8d8c0",
-                border: "1px solid rgba(255,255,255,0.15)",
+                border: "1px solid rgba(255,255,255,0.13)",
                 borderRadius: "5px",
                 padding: "4px 8px",
                 fontSize: "12px",
                 fontFamily: "var(--font-mono)",
                 outline: "none",
+                minWidth: 0,
               }}
             />
-            <DbgButton onClick={sendAction}>Send</DbgButton>
+            <DbgButton onClick={() => sendAction(freeText)} disabled={!connected}>
+              ↵
+            </DbgButton>
           </div>
 
           <Divider />
-          <DbgButton accent onClick={clearCanvas}>Clear canvas</DbgButton>
+
+          {/* Preset prompts by category */}
+          {PRESETS.map((section, si) => (
+            <div key={si}>
+              <SectionLabel>{section.section}</SectionLabel>
+              <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                {section.prompts.map((p) => (
+                  <DbgButton
+                    key={p.action}
+                    onClick={() => sendAction(p.action)}
+                    disabled={!connected}
+                    full
+                  >
+                    {p.label}
+                  </DbgButton>
+                ))}
+              </div>
+              {si < PRESETS.length - 1 && <Divider />}
+            </div>
+          ))}
+
+          <Divider />
+          <DbgButton accent onClick={clearCanvas} full>
+            Clear canvas
+          </DbgButton>
         </div>
       )}
+
+      {/* Toggle button */}
       <button
         onClick={() => setOpen((o) => !o)}
         style={{

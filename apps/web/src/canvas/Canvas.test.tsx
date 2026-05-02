@@ -15,6 +15,20 @@ vi.mock("framer-motion", () => ({
   }),
 }));
 
+// ─── Browser API mocks ───────────────────────────────────────────────────────
+
+// Camera.tsx calls navigator.mediaDevices.getUserMedia on mount; mock it so
+// jsdom tests don't throw and the camera component renders in "requesting" state
+// (the promise never resolves synchronously, matching real browser behaviour).
+Object.defineProperty(globalThis.navigator, "mediaDevices", {
+  value: {
+    getUserMedia: vi.fn().mockResolvedValue({
+      getTracks: () => [{ stop: vi.fn() }],
+    }),
+  },
+  configurable: true,
+});
+
 // ─── Context mocks ───────────────────────────────────────────────────────────
 
 const mockSend = vi.fn();

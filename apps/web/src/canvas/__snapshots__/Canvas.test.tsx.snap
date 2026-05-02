@@ -145,9 +145,11 @@ exports[`Canvas > renders camera in center zone 1`] = `
             ✕
           </button>
           <div
-            class="camera-frame"
+            class="camera-frame camera-requesting"
           >
-            Camera feed
+            <span>
+              Opening camera…
+            </span>
           </div>
           <p
             class="text-secondary size-sm"
@@ -410,26 +412,30 @@ exports[`Canvas > renders recipe-grid with recipe-option children in center zone
         <div
           class="recipe-grid comp-wide"
         >
-          <button
-            aria-label="Carbonara"
-            class="recipe-option"
-          >
-            <span
-              class="recipe-title"
+          <div>
+            <button
+              aria-label="Carbonara"
+              class="recipe-option"
             >
-              Carbonara
-            </span>
-          </button>
-          <button
-            aria-label="Aglio e Olio"
-            class="recipe-option"
-          >
-            <span
-              class="recipe-title"
+              <span
+                class="recipe-title"
+              >
+                Carbonara
+              </span>
+            </button>
+          </div>
+          <div>
+            <button
+              aria-label="Aglio e Olio"
+              class="recipe-option"
             >
-              Aglio e Olio
-            </span>
-          </button>
+              <span
+                class="recipe-title"
+              >
+                Aglio e Olio
+              </span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

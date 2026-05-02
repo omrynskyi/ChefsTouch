@@ -17,13 +17,11 @@ _SUPPRESSED_SKELETON_TYPES = {"recipe-option"}
 
 def _canvas_summary(canvas_state: Dict[str, Any]) -> str:
     import json
-    if "active" in canvas_state or "staged" in canvas_state:
+    if "active" in canvas_state:
         active = canvas_state.get("active", {})
-        staged = canvas_state.get("staged", {})
     else:
         active = canvas_state
-        staged = {}
-    return "CANVAS STATE:\n" + json.dumps({"active": active, "staged": staged}, indent=2)
+    return "ON SCREEN:\n" + json.dumps(active, indent=2)
 
 
 def _validate_op(raw: dict) -> Optional[dict]:
@@ -49,12 +47,12 @@ def _component_type(entry: Any) -> Optional[str]:
 
 
 def _known_component_types(canvas_state: Dict[str, Any]) -> Dict[str, Optional[str]]:
-    active, staged = _canvas_layers(canvas_state)
+    # Seed only from active — staged is wiped by clear_staged at the start of every render call.
+    active, _ = _canvas_layers(canvas_state)
     known: Dict[str, Optional[str]] = {}
-    for layer in (active, staged):
-        if isinstance(layer, dict):
-            for comp_id, entry in layer.items():
-                known[comp_id] = _component_type(entry)
+    if isinstance(active, dict):
+        for comp_id, entry in active.items():
+            known[comp_id] = _component_type(entry)
     return known
 
 
@@ -183,6 +181,9 @@ async def astream_canvas_ops(
         },
         tags=["pair-cooking", "render-agent", "streaming"],
     ) as render_run:
+        # Always wipe stale staged items from previous turns before emitting new ops.
+        yield {"op": "clear_staged"}
+
         async for event in astream_events(intent, context, canvas_state, llm):
             if isinstance(event, SkeletonEvent):
                 if event.component_type in _SUPPRESSED_SKELETON_TYPES:

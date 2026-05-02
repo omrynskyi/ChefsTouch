@@ -72,10 +72,8 @@ When showing recipe suggestions, emit the recipe-grid first and then its recipe-
 Within each data object emit critical keys first: instruction before tags before action.
 
 CANVAS STATE
-The following is the exact JSON state of both environments.
-  "active": components currently visible to the user.
-  "staged": components held in memory (invisible). Use commit/swap to make them visible.
-Use "update" for any id that appears in active or staged. Use "add"/"stage" for new ids only.
+What is currently visible to the user. This is your source of truth for what's on screen.
+Use "update" for any component id listed here. Use "add" or "stage" for anything new.
 
 {canvas_state}
 

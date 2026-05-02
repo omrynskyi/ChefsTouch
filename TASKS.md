@@ -161,7 +161,7 @@ Complete the double-buffered canvas model described in the system design so the 
 ---
 
 ### T-011 — Finish component library parity with the PRD
-**Status:** READY  
+**Status:** DONE  
 **Priority:** P0  
 **Depends on:** T-010
 

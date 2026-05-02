@@ -79,7 +79,7 @@ function PrimaryRenderer({
     case "progress-bar":
       return <ProgressBar data={comp.data as import("@pair-cooking/types").ProgressBarData} focused={comp.focused} />;
     case "timer":
-      return <Timer data={comp.data as import("@pair-cooking/types").TimerData} focused={comp.focused} />;
+      return <Timer id={comp.id} data={comp.data as import("@pair-cooking/types").TimerData} focused={comp.focused} />;
     case "suggestion":
       return <Suggestion data={comp.data as import("@pair-cooking/types").SuggestionData} focused={comp.focused} />;
     case "recipe-grid":

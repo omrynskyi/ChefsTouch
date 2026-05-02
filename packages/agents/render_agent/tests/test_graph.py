@@ -247,9 +247,12 @@ async def test_astream_canvas_ops_suppresses_recipe_option_skeletons():
     llm = make_chunked_llm(list(stream))
     ops = [op async for op in astream_canvas_ops("show recipes", "", {}, llm)]
 
-    assert all(not (op["op"] == "skeleton" and op["type"] == "recipe-option") for op in ops)
-    assert ops[0] == {"op": "add", "id": "veg-grid", "type": "recipe-grid", "data": {}}
-    assert ops[1]["id"] == "veg-opt-1"
+    assert all(not (op["op"] == "skeleton" and op.get("type") == "recipe-option") for op in ops)
+    # clear_staged is always the first op; substantive ops follow
+    content_ops = [op for op in ops if op["op"] not in ("skeleton", "clear_staged")]
+    assert ops[0] == {"op": "clear_staged"}
+    assert content_ops[0] == {"op": "add", "id": "veg-grid", "type": "recipe-grid", "data": {}}
+    assert content_ops[1]["id"] == "veg-opt-1"
 
 
 @pytest.mark.asyncio
@@ -260,7 +263,7 @@ async def test_astream_canvas_ops_drops_reserved_corner_tl_ops():
     )
     llm = make_llm(stream)
     ops = [op async for op in astream_canvas_ops("timers", "", {}, llm)]
-    content_ids = [op["id"] for op in ops if op["op"] != "skeleton"]
+    content_ids = [op["id"] for op in ops if op["op"] not in ("skeleton", "clear_staged")]
 
     assert content_ids == ["timer-2"]
 

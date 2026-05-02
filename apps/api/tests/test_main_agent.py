@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -66,7 +66,8 @@ async def test_initial_reply_emits_before_streamed_canvas_ops():
     events = [e async for e in stream_main_assistant("next step", "Recipe: Pasta", {}, llm, **STREAM_KWARGS)]  # type: ignore[arg-type]
 
     assistant_events = [e for e in events if e["type"] == "speech_commit"]
-    canvas_events = [e for e in events if e["type"] == "canvas_op"]
+    # Exclude housekeeping ops (clear_staged has no id) — focus on rendered components.
+    canvas_events = [e for e in events if e["type"] == "canvas_op" and e["op"]["op"] != "clear_staged"]
 
     assert assistant_events[0]["text"] == "On it."
     assert canvas_events[0]["op"]["id"] == "step-1"
@@ -102,7 +103,11 @@ async def test_render_canvas_streams_repaired_recipe_grid_before_options():
     )
 
     events = [e async for e in stream_main_assistant("show recipes", "", {}, llm, **STREAM_KWARGS)]  # type: ignore[arg-type]
-    canvas_ids = [e["op"]["id"] for e in events if e["type"] == "canvas_op" and e["op"]["op"] != "skeleton"]
+    canvas_ids = [
+        e["op"]["id"]
+        for e in events
+        if e["type"] == "canvas_op" and e["op"]["op"] not in ("skeleton", "clear_staged")
+    ]
 
     assert canvas_ids == ["veg-grid", "veg-opt-1", "veg-opt-2"]
 
@@ -115,9 +120,12 @@ async def test_find_recipes_can_emit_material_follow_up():
         _make_text_msg("Here are some pasta ideas."),
     ])
 
-    events = [e async for e in stream_main_assistant("show me pasta recipes", "", {}, llm, **STREAM_KWARGS)]  # type: ignore[arg-type]
-    assistant_texts = [e["text"] for e in events if e["type"] == "speech_commit"]
+    # Patch find_recipes so the LLM sequence isn't consumed by Phase 2 generation.
+    canned = {"query": "pasta", "recipes": [], "source": "stub", "session_context": {}}
+    with patch("packages.agents.main_assistant.graph.find_recipes", AsyncMock(return_value=canned)):
+        events = [e async for e in stream_main_assistant("show me pasta recipes", "", {}, llm, **STREAM_KWARGS)]  # type: ignore[arg-type]
 
+    assistant_texts = [e["text"] for e in events if e["type"] == "speech_commit"]
     assert assistant_texts == ["On it.", "Here are some pasta ideas."]
 
 

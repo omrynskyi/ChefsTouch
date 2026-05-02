@@ -106,9 +106,17 @@ class MainAssistantEvent(TypedDict, total=False):
 
 
 class MainAssistantGraph:
-    def __init__(self, llm: BaseChatModel) -> None:
+    def __init__(
+        self,
+        llm: BaseChatModel,
+        *,
+        supabase_client: Optional[Any] = None,
+        embed_model: Optional[Any] = None,
+    ) -> None:
         self._base_llm = llm
         self._tool_llm = llm.bind_tools(_TOOL_SCHEMAS)  # type: ignore[arg-type]
+        self._supabase_client = supabase_client
+        self._embed_model = embed_model
 
     async def astream(
         self,
@@ -344,7 +352,13 @@ class MainAssistantGraph:
 
     async def _run_tool(self, name: str, args: dict, context: str) -> dict:
         if name == "find_recipes":
-            return await find_recipes(args.get("query", ""), {"context": context})
+            return await find_recipes(
+                args.get("query", ""),
+                {"context": context},
+                self._base_llm,
+                client=self._supabase_client,
+                embed_model=self._embed_model,
+            )
 
         if name == "analyze_image":
             return await analyze_frames([], args.get("context", context), self._base_llm)
@@ -440,8 +454,13 @@ class MainAssistantGraph:
         return str(content or "")
 
 
-def build_main_assistant(llm: BaseChatModel) -> MainAssistantGraph:
-    return MainAssistantGraph(llm)
+def build_main_assistant(
+    llm: BaseChatModel,
+    *,
+    supabase_client: Optional[Any] = None,
+    embed_model: Optional[Any] = None,
+) -> MainAssistantGraph:
+    return MainAssistantGraph(llm, supabase_client=supabase_client, embed_model=embed_model)
 
 
 async def stream_main_assistant(
@@ -454,8 +473,10 @@ async def stream_main_assistant(
     generation_id: int,
     conversation: Optional[List[dict[str, str]]] = None,
     tracking_context: Optional[dict[str, Any]] = None,
+    supabase_client: Optional[Any] = None,
+    embed_model: Optional[Any] = None,
 ) -> AsyncGenerator[MainAssistantEvent, None]:
-    graph = build_main_assistant(llm)
+    graph = build_main_assistant(llm, supabase_client=supabase_client, embed_model=embed_model)
     client = get_langsmith_client()
     project_name = get_langsmith_project("agent-turns")
     tracing_mode = langsmith_tracing_mode()
@@ -556,6 +577,8 @@ async def run_main_assistant(
     generation_id: int,
     conversation: Optional[List[dict[str, str]]] = None,
     tracking_context: Optional[dict[str, Any]] = None,
+    supabase_client: Optional[Any] = None,
+    embed_model: Optional[Any] = None,
 ) -> List[MainAssistantEvent]:
     events: List[MainAssistantEvent] = []
     async for event in stream_main_assistant(
@@ -567,6 +590,8 @@ async def run_main_assistant(
         generation_id=generation_id,
         conversation=conversation,
         tracking_context=tracking_context,
+        supabase_client=supabase_client,
+        embed_model=embed_model,
     ):
         events.append(event)
     return events

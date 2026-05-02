@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -38,6 +38,12 @@ async def test_run_agent_turn_passes_session_conversation_to_main_assistant():
     with patch(
         "apps.api.app.services.agent_runner.stream_main_assistant",
         _fake_stream_main_assistant,
+    ), patch(
+        "apps.api.app.services.agent_runner.get_client",
+        return_value=MagicMock(),
+    ), patch(
+        "apps.api.app.services.agent_runner.get_embed_model",
+        return_value=MagicMock(),
     ):
         events = [
             event

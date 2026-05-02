@@ -4,6 +4,8 @@ from typing import AsyncGenerator
 
 from langchain_core.language_models import BaseChatModel
 
+from apps.api.app.db import get_client
+from apps.api.app.llm import get_embed_model
 from apps.api.app.models import SessionContext
 from packages.agents.langsmith_utils import summarize_canvas_state
 from packages.agents.main_assistant import MainAssistantEvent, stream_main_assistant
@@ -38,5 +40,7 @@ async def run_agent_turn(
             "current_step": session.current_step,
             "canvas_state": summarize_canvas_state(session.canvas_state),
         },
+        supabase_client=get_client(),
+        embed_model=get_embed_model(),
     ):
         yield event
